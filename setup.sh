@@ -53,11 +53,16 @@ systemctl start postgresql
 ok "PostgreSQL $(psql --version | awk '{print $3}')"
 
 info "Встановлення Chromium та залежностей Puppeteer..."
-apt-get install -y chromium-browser \
+# На RPi OS Bookworm пакет називається 'chromium', на старіших — 'chromium-browser'
+CHROMIUM_PKG="chromium"
+apt-get install -y "$CHROMIUM_PKG" \
   libgbm1 libxkbcommon0 libatk1.0-0 libatk-bridge2.0-0 \
   libcups2 libdrm2 libxcomposite1 libxdamage1 libxfixes3 \
-  libxrandr2 libpango-1.0-0 libcairo2 libasound2 &>/dev/null
-CHROMIUM_PATH=$(which chromium-browser)
+  libxrandr2 libpango-1.0-0 libcairo2 libasound2 2>&1 \
+  | grep -E '(Err|error|cannot|already installed|upgraded|newly installed)' || true
+
+CHROMIUM_PATH=$(which chromium 2>/dev/null || which chromium-browser 2>/dev/null || echo "")
+[[ -n "$CHROMIUM_PATH" ]] || err "Chromium не знайдено після встановлення. Запустіть: sudo apt install chromium"
 ok "Chromium → $CHROMIUM_PATH"
 
 # =============================================================================
