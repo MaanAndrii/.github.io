@@ -264,7 +264,8 @@ chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.yml"
 ok "config.yml створено"
 
 info "Встановлення cloudflared як сервісу..."
-cloudflared service install 2>/dev/null || true
+# Потрібно вказати конфіг явно — sudo змінює HOME на /root і cloudflared не знаходить config.yml
+cloudflared --config "${CONFIG_DIR}/config.yml" service install
 systemctl enable cloudflared &>/dev/null
 systemctl restart cloudflared
 
