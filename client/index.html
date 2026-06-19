@@ -1249,16 +1249,26 @@ async function saveEntry() {
   const prevDate = editingDate;
   const dateChanged = prevDate !== null && prevDate !== date;
 
-  // Optimistically update local state
-  if (dateChanged) {
-    entries = entries.filter(e => String(e.date).slice(0,10) !== prevDate);
+  // Server first — only update local state after confirmation
+  try {
+    if (dateChanged) {
+      await deleteEntryFromServer(prevDate);
+    }
+    const saved = await saveEntryToServer(entry);
+    // Merge server response into local state
+    if (dateChanged) {
+      entries = entries.filter(e => String(e.date).slice(0,10) !== prevDate);
+    }
+    entries = entries.filter(e => String(e.date).slice(0,10) !== date);
+    entries.push(saved || entry);
+    entries.sort((a,b) => String(b.date).localeCompare(String(a.date)));
+    saveLocalData(entries);
+  } catch (err) {
+    showToast('⚠️ Помилка збереження: ' + err.message, 'var(--warn)');
+    return; // Keep form open so user can retry — data not lost
   }
-  entries = entries.filter(e => String(e.date).slice(0,10) !== date);
-  entries.push(entry);
-  entries.sort((a,b) => String(b.date).localeCompare(String(a.date)));
-  saveLocalData(entries);
 
-  // Clear form
+  // Clear form only after successful save
   ['m_sys_l','m_dia_l','m_sys_r','m_dia_r','m_pulse',
    'e_sys_l','e_dia_l','e_sys_r','e_dia_r','e_pulse','weight']
     .forEach(id => document.getElementById(id).value = '');
@@ -1273,17 +1283,6 @@ async function saveEntry() {
     showToast('✅ Запис збережено!');
   }
   renderTodaySummary();
-
-  // Save to server
-  try {
-    // If date changed — delete old record first, then save new
-    if (dateChanged) {
-      await deleteEntryFromServer(prevDate);
-    }
-    await saveEntryToServer(entry);
-  } catch (err) {
-    showToast('⚠️ Помилка збереження на сервері: ' + err.message, 'var(--warn)');
-  }
 }
 
 function fillFormFromEntry(e) {
