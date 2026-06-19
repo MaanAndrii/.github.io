@@ -1349,8 +1349,12 @@ function renderTodaySummary() {
   const e = entries.find(x => String(x.date).slice(0,10) === today);
   const box = document.getElementById('todaySummary');
   const grid = document.getElementById('summaryGrid');
-  if (!e) { box.style.display = 'none'; return; }
   box.style.display = 'block';
+
+  if (!e) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:16px;color:var(--text-secondary);font-size:14px">Сьогодні ще немає записів</div>`;
+    return;
+  }
 
   const m = e.morning, ev = e.evening;
 
