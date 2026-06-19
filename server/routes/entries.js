@@ -61,18 +61,18 @@ router.post('/', requireAuth, async (req, res) => {
         weight, notes, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
       ON CONFLICT (user_id, date) DO UPDATE SET
-        m_sys_l = EXCLUDED.m_sys_l,
-        m_dia_l = EXCLUDED.m_dia_l,
-        m_sys_r = EXCLUDED.m_sys_r,
-        m_dia_r = EXCLUDED.m_dia_r,
-        m_pulse = EXCLUDED.m_pulse,
-        e_sys_l = EXCLUDED.e_sys_l,
-        e_dia_l = EXCLUDED.e_dia_l,
-        e_sys_r = EXCLUDED.e_sys_r,
-        e_dia_r = EXCLUDED.e_dia_r,
-        e_pulse = EXCLUDED.e_pulse,
-        weight  = EXCLUDED.weight,
-        notes   = EXCLUDED.notes,
+        m_sys_l = COALESCE(EXCLUDED.m_sys_l, entries.m_sys_l),
+        m_dia_l = COALESCE(EXCLUDED.m_dia_l, entries.m_dia_l),
+        m_sys_r = COALESCE(EXCLUDED.m_sys_r, entries.m_sys_r),
+        m_dia_r = COALESCE(EXCLUDED.m_dia_r, entries.m_dia_r),
+        m_pulse = COALESCE(EXCLUDED.m_pulse, entries.m_pulse),
+        e_sys_l = COALESCE(EXCLUDED.e_sys_l, entries.e_sys_l),
+        e_dia_l = COALESCE(EXCLUDED.e_dia_l, entries.e_dia_l),
+        e_sys_r = COALESCE(EXCLUDED.e_sys_r, entries.e_sys_r),
+        e_dia_r = COALESCE(EXCLUDED.e_dia_r, entries.e_dia_r),
+        e_pulse = COALESCE(EXCLUDED.e_pulse, entries.e_pulse),
+        weight  = COALESCE(EXCLUDED.weight,  entries.weight),
+        notes   = COALESCE(EXCLUDED.notes,   entries.notes),
         updated_at = NOW()
       RETURNING *`,
       [

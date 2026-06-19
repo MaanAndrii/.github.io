@@ -1318,7 +1318,9 @@ function onDateChange(date) {
   }
 }
 
-function editEntry(date) {
+async function editEntry(date) {
+  // Fetch latest from server so form is pre-filled with up-to-date data
+  await fetchEntries();
   const e = entries.find(x => String(x.date).slice(0,10) === date);
   if (!e) return;
   editingDate = date;
@@ -1998,6 +2000,17 @@ function scheduleReminders(s) {
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', initApp);
+
+// Auto-refresh when user returns to the app (switches tab or comes back from phone sleep)
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && currentUser) {
+    await fetchEntries();
+    renderTodaySummary();
+    const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
+    if (activePage === 'history') renderHistory();
+    if (activePage === 'stats') renderCharts();
+  }
+});
 
 // ── SWIPE NAVIGATION ─────────────────────────────────────────────────────────
 (function () {
