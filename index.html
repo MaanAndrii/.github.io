@@ -1039,6 +1039,7 @@ const GAPI_SCOPES     = 'https://www.googleapis.com/auth/drive.file';
 let driveToken   = null;
 let driveFileId  = localStorage.getItem('drive_file_id') || null;
 let driveUser    = JSON.parse(localStorage.getItem('drive_user') || 'null');
+let driveRefreshTimer = null;
 
 // Завантаження Google Identity Services
 function loadGIS() {
@@ -1065,10 +1066,35 @@ async function driveSignIn() {
       driveToken = resp.access_token;
       await fetchDriveUserInfo();
       renderDriveUI();
+      scheduleTokenRefresh();
       showToast('✅ Підключено до Google Drive!');
     }
   });
   client.requestAccessToken();
+}
+
+// Оновлює токен кожні 50 хв поки вкладка відкрита (токен живе ~60 хв)
+function scheduleTokenRefresh() {
+  clearTimeout(driveRefreshTimer);
+  driveRefreshTimer = setTimeout(async () => {
+    if (!driveUser || GAPI_CLIENT_ID === '__YOUR_GOOGLE_CLIENT_ID__') return;
+    try {
+      await loadGIS();
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GAPI_CLIENT_ID,
+        scope: GAPI_SCOPES,
+        prompt: '',
+        callback: (resp) => {
+          if (!resp.error && resp.access_token) {
+            driveToken = resp.access_token;
+            renderDriveUI();
+            scheduleTokenRefresh();
+          }
+        }
+      });
+      client.requestAccessToken({ prompt: '' });
+    } catch {}
+  }, 50 * 60 * 1000);
 }
 
 async function fetchDriveUserInfo() {
@@ -1082,6 +1108,7 @@ async function fetchDriveUserInfo() {
 }
 
 function driveSignOut() {
+  clearTimeout(driveRefreshTimer);
   driveToken = null;
   driveUser  = null;
   driveFileId = null;
@@ -1143,6 +1170,7 @@ async function ensureToken() {
           if (!resp.error && resp.access_token) {
             driveToken = resp.access_token;
             renderDriveUI();
+            scheduleTokenRefresh();
             resolve(true);
           } else {
             resolve(false);
@@ -1167,6 +1195,7 @@ async function tryRestoreSession() {
         if (!resp.error && resp.access_token) {
           driveToken = resp.access_token;
           renderDriveUI();
+          scheduleTokenRefresh();
         }
       }
     });
