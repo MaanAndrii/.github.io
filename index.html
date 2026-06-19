@@ -434,6 +434,74 @@
     }
     .toast.show { transform: translateX(-50%) translateY(0); }
 
+    /* ── TOGGLE SWITCH ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .toggle-label { font-size: 13px; font-weight: 500; }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 26px;
+      transition: background .2s;
+      cursor: pointer;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      left: 3px; top: 3px;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform .2s;
+    }
+    .toggle input:checked + .toggle-track { background: var(--accent2); }
+    .toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+
+    /* ── TIME FIELDS ── */
+    .time-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .time-field { display: flex; flex-direction: column; gap: 5px; }
+    .time-field label { font-size: 11px; font-weight: 500; color: var(--muted); }
+    .time-field input[type="time"] {
+      color-scheme: dark;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 500;
+      padding: 10px 10px;
+      width: 100%;
+    }
+    .time-field input[type="time"]:focus { outline: none; border-color: var(--accent); }
+    .notif-status {
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .notif-status.granted  { background: rgba(52,211,153,.1);  color: var(--accent2); }
+    .notif-status.denied   { background: rgba(251,146,60,.1);  color: var(--warn); }
+    .notif-status.default  { background: rgba(79,142,247,.1);  color: var(--accent); }
+
     /* ── FILTER ROW ── */
     .filter-row {
       display: flex;
@@ -735,6 +803,36 @@
       </label>
     </div>
 
+    <div class="section-label" style="margin-top:20px">🔔 Нагадування</div>
+    <div class="card" id="remindersCard">
+      <div id="notifStatus" class="notif-status default"></div>
+      <div class="toggle-row">
+        <span class="toggle-label">Нагадувати про виміри</span>
+        <label class="toggle">
+          <input type="checkbox" id="remindersEnabled" onchange="saveReminderSettings()"/>
+          <div class="toggle-track"></div>
+        </label>
+      </div>
+      <div id="reminderTimes">
+        <div class="time-row">
+          <div class="time-field">
+            <label>🌅 Ранковий вимір</label>
+            <input type="time" id="reminderMorning" value="08:00" onchange="saveReminderSettings()"/>
+          </div>
+          <div class="time-field">
+            <label>🌙 Вечірній вимір</label>
+            <input type="time" id="reminderEvening" value="20:00" onchange="saveReminderSettings()"/>
+          </div>
+        </div>
+      </div>
+      <button class="btn-save" id="btnNotifPermission" onclick="requestNotifPermission()" style="display:none">
+        🔔 Дозволити сповіщення
+      </button>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">
+        Сповіщення надсилаються поки браузер відкритий. На Android встановіть застосунок на головний екран для роботи у фоні.
+      </p>
+    </div>
+
     <div class="section-label" style="margin-top:20px">Статистика</div>
     <div class="card" id="exportStats"></div>
   </div>
@@ -809,7 +907,7 @@ function showPage(name) {
   if (name === 'add') renderTodaySummary();
   if (name === 'history') renderHistory();
   if (name === 'stats') renderCharts();
-  if (name === 'export') { renderExportStats(); renderDriveUI(); }
+  if (name === 'export') { renderExportStats(); renderDriveUI(); renderRemindersUI(); }
 }
 
 // ── SAVE ────────────────────────────────────────────────────────────────────
@@ -1515,6 +1613,114 @@ function renderExportStats() {
   `;
 }
 
+// ── REMINDERS ────────────────────────────────────────────────────────────────
+const REMINDER_KEY = 'health_reminders';
+let reminderTimers = [];
+
+function loadReminderSettings() {
+  try { return JSON.parse(localStorage.getItem(REMINDER_KEY)) || {}; }
+  catch { return {}; }
+}
+
+function saveReminderSettings() {
+  const s = {
+    enabled:  document.getElementById('remindersEnabled').checked,
+    morning:  document.getElementById('reminderMorning').value,
+    evening:  document.getElementById('reminderEvening').value,
+  };
+  localStorage.setItem(REMINDER_KEY, JSON.stringify(s));
+  scheduleReminders(s);
+}
+
+function renderRemindersUI() {
+  const s = loadReminderSettings();
+  document.getElementById('remindersEnabled').checked  = s.enabled  ?? false;
+  document.getElementById('reminderMorning').value     = s.morning  || '08:00';
+  document.getElementById('reminderEvening').value     = s.evening  || '20:00';
+
+  const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+  const statusEl = document.getElementById('notifStatus');
+  const btnEl    = document.getElementById('btnNotifPermission');
+
+  if (perm === 'granted') {
+    statusEl.className = 'notif-status granted';
+    statusEl.textContent = '✅ Сповіщення дозволено';
+    btnEl.style.display = 'none';
+  } else if (perm === 'denied') {
+    statusEl.className = 'notif-status denied';
+    statusEl.textContent = '🚫 Сповіщення заблоковано браузером. Дозвольте їх у налаштуваннях сайту.';
+    btnEl.style.display = 'none';
+  } else if (perm === 'unsupported') {
+    statusEl.className = 'notif-status denied';
+    statusEl.textContent = '⚠️ Ваш браузер не підтримує сповіщення';
+    btnEl.style.display = 'none';
+  } else {
+    statusEl.className = 'notif-status default';
+    statusEl.textContent = '💡 Натисніть кнопку нижче, щоб дозволити сповіщення';
+    btnEl.style.display = 'flex';
+  }
+}
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) return;
+  const result = await Notification.requestPermission();
+  renderRemindersUI();
+  if (result === 'granted') {
+    scheduleReminders(loadReminderSettings());
+    showToast('🔔 Сповіщення увімкнено!');
+  }
+}
+
+function scheduleReminders(s) {
+  reminderTimers.forEach(clearTimeout);
+  reminderTimers = [];
+  if (!s?.enabled || Notification.permission !== 'granted') return;
+
+  [['morning', s.morning || '08:00'], ['evening', s.evening || '20:00']].forEach(([type, time]) => {
+    const [h, m] = time.split(':').map(Number);
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(h, m, 0, 0);
+
+    let delay = target - now;
+    if (delay <= 0) delay += 24 * 60 * 60 * 1000; // завтра
+
+    const label  = type === 'morning' ? 'ранковий' : 'вечірній';
+    const emoji  = type === 'morning' ? '🌅' : '🌙';
+
+    const tid = setTimeout(async () => {
+      const todayEntry = entries.find(e => e.date === todayStr());
+      const alreadyDone = todayEntry && (
+        type === 'morning'
+          ? todayEntry.morning.sys_l != null || todayEntry.morning.sys_r != null
+          : todayEntry.evening.sys_l != null || todayEntry.evening.sys_r != null
+      );
+      if (alreadyDone) { scheduleReminders(loadReminderSettings()); return; }
+
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        reg.showNotification(`${emoji} Час виміряти тиск`, {
+          body: `Зробіть ${label} вимір — це займе хвилину.`,
+          icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="36" fill="%231a2744"/><text y="130" x="96" text-anchor="middle" font-size="110">❤️</text></svg>',
+          tag: `reminder-${type}`,
+          renotify: true,
+          data: { url: './index.html' }
+        });
+      } catch {
+        new Notification(`${emoji} Час виміряти тиск`, {
+          body: `Зробіть ${label} вимір — це займе хвилину.`,
+          tag: `reminder-${type}`
+        });
+      }
+
+      // Планувати на завтра
+      scheduleReminders(loadReminderSettings());
+    }, delay);
+
+    reminderTimers.push(tid);
+  });
+}
+
 // ── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('entryDate').value = todayStr();
@@ -1524,6 +1730,7 @@ document.addEventListener('DOMContentLoaded', () => {
     `${days[now.getDay()]}, ${now.getDate()}.${String(now.getMonth()+1).padStart(2,'0')}`;
   renderTodaySummary();
   tryRestoreSession();
+  scheduleReminders(loadReminderSettings());
 });
 
 // ── SWIPE NAVIGATION ─────────────────────────────────────────────────────────
