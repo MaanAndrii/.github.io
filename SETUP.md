@@ -1,15 +1,31 @@
-# Встановлення на Raspberry Pi 5
+# Встановлення на Raspberry Pi
 
 ## Вимоги
-- Raspberry Pi 5 (4GB / 8GB)
-- Raspberry Pi OS Bookworm 64-bit (рекомендується Lite)
+
+- Raspberry Pi 4 або 5 (рекомендовано 4GB+)
+- Raspberry Pi OS **Bookworm** 64-bit (перевірено на Lite і Desktop)
 - Доступ по SSH або безпосередньо
-- Власний домен на Cloudflare
+- Власний домен, прив'язаний до **Cloudflare** (для тунелю)
 - Google Cloud проєкт для OAuth
 
 ---
 
-## Крок 1 — Оновлення системи
+## Автоматичне встановлення (рекомендовано)
+
+```bash
+git clone https://github.com/MaanAndrii/blood.git
+cd blood
+git checkout claude/dreamy-cannon-p1768u
+sudo bash setup.sh
+```
+
+Візард проведе через усі 9 кроків інтерактивно. Якщо щось пішло не так — читайте ручне встановлення нижче.
+
+---
+
+## Ручне встановлення (покроково)
+
+### Крок 1 — Оновлення системи
 
 ```bash
 sudo apt update && sudo apt upgrade -y
@@ -18,37 +34,29 @@ sudo reboot
 
 ---
 
-## Крок 2 — Встановлення Node.js 20 LTS
+### Крок 2 — Node.js 20 LTS
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 node --version   # має бути v20.x.x
-npm --version
 ```
 
 ---
 
-## Крок 3 — Встановлення PostgreSQL
+### Крок 3 — PostgreSQL
 
 ```bash
 sudo apt install -y postgresql postgresql-client
-
-# Запустити та увімкнути автозапуск
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
-
-# Перевірити що працює
-sudo systemctl status postgresql
 ```
 
-### Створити базу даних та користувача
+Створити базу і користувача:
 
 ```bash
 sudo -u postgres psql
 ```
-
-У psql консолі виконати:
 
 ```sql
 CREATE USER health WITH PASSWORD 'ВАШ_НАДІЙНИЙ_ПАРОЛЬ';
@@ -57,88 +65,72 @@ GRANT ALL PRIVILEGES ON DATABASE health TO health;
 \q
 ```
 
-> Замініть `ВАШ_НАДІЙНИЙ_ПАРОЛЬ` на свій. Запишіть — знадобиться в `.env`.
-
 ---
 
-## Крок 4 — Встановлення залежностей Puppeteer
+### Крок 4 — Chromium для Puppeteer
 
-Puppeteer потребує системний Chromium на ARM64:
-
-```bash
-sudo apt install -y chromium-browser \
-  libgbm1 libxkbcommon0 libatk1.0-0 \
-  libatk-bridge2.0-0 libcups2 libdrm2 \
-  libxcomposite1 libxdamage1 libxfixes3 \
-  libxrandr2 libpango-1.0-0 libcairo2 \
-  libasound2
-```
-
-Перевірити шлях до Chromium:
+> **Важливо:** На RPi OS Bookworm (Debian 12) пакет називається `chromium`, а **не** `chromium-browser`. Якщо встановити `chromium-browser` — отримаєте помилку `Package not found`.
 
 ```bash
-which chromium-browser
-# /usr/bin/chromium-browser
+sudo apt install -y chromium \
+  libgbm1 libxkbcommon0 libatk1.0-0 libatk-bridge2.0-0 \
+  libcups2 libdrm2 libxcomposite1 libxdamage1 libxfixes3 \
+  libxrandr2 libpango-1.0-0 libcairo2 libasound2
+
+which chromium
+# /usr/bin/chromium
 ```
 
 ---
 
-## Крок 5 — Клонування проєкту
+### Крок 5 — Клонування проєкту
 
 ```bash
-cd /home/pi
+cd ~
 git clone https://github.com/MaanAndrii/blood.git
 cd blood
 git checkout claude/dreamy-cannon-p1768u
 ```
 
-### Встановлення npm залежностей
-
-```bash
-npm install
-
-# Повідомити Puppeteer де знаходиться системний Chromium
-# (не завантажувати свій — економимо ~300MB)
-npm install puppeteer --ignore-scripts
-```
-
 ---
 
-## Крок 6 — Налаштування Puppeteer на системний Chromium
+### Крок 6 — npm залежності
 
-Відредагувати `server/services/pdf.js` — додати `executablePath`:
+> **Важливо:** Встановіть змінну `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1` **перед** `npm install`. Без цього Puppeteer спробує завантажити власний Chromium (~300MB для ARM64) і `npm install` зависне на 30+ хвилин або впаде з помилкою мережі.
+
+```bash
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
+```
+
+Вказати системний Chromium у `server/services/pdf.js`:
 
 ```bash
 nano server/services/pdf.js
 ```
 
-Знайти рядок `puppeteer.launch({` і замінити блок:
+Знайти `puppeteer.launch({` і додати `executablePath`:
 
 ```javascript
 const browser = await puppeteer.launch({
   headless: 'new',
-  executablePath: '/usr/bin/chromium-browser',
+  executablePath: '/usr/bin/chromium',
   args: ['--no-sandbox', '--disable-setuid-sandbox'],
 });
 ```
 
 ---
 
-## Крок 7 — Генерація VAPID ключів для Web Push
+### Крок 7 — VAPID ключі для Web Push
 
 ```bash
-npx web-push generate-vapid-keys
+node -e "const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log('Public: '+k.publicKey+'\nPrivate: '+k.privateKey)"
 ```
 
-Збережіть вивід — знадобиться в `.env`:
-```
-Public Key:  BxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxCQ
-Private Key: yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-```
+Збережіть обидва ключі — знадобляться в `.env`.
 
 ---
 
-## Крок 8 — Створення файлу .env
+### Крок 8 — Файл .env
 
 ```bash
 cp .env.example .env
@@ -151,45 +143,53 @@ nano .env
 DATABASE_URL=postgresql://health:ВАШ_НАДІЙНИЙ_ПАРОЛЬ@localhost:5432/health
 GOOGLE_CLIENT_ID=          # з кроку 9
 GOOGLE_CLIENT_SECRET=      # з кроку 9
-GOOGLE_CALLBACK_URL=https://health.вашдомен.com/api/auth/google/callback
-JWT_SECRET=                # будь-який довгий випадковий рядок (мін. 32 символи)
+GOOGLE_CALLBACK_URL=https://ВАШ_ДОМЕН/api/auth/google/callback
+JWT_SECRET=                # генерується нижче
 VAPID_PUBLIC_KEY=          # з кроку 7
 VAPID_PRIVATE_KEY=         # з кроку 7
 VAPID_EMAIL=mailto:ваш@email.com
 NODE_ENV=production
 PORT=3000
-BASE_URL=https://health.вашдомен.com
+BASE_URL=https://ВАШ_ДОМЕН
 ```
 
 Генерація JWT_SECRET:
+
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
+> **Важливо:** Файл `.env` повинен належати вашому користувачу (не root), інакше systemd-сервіс не зможе його прочитати і застосунок не запуститься з помилкою `OAuth2Strategy requires a clientID`.
+
+```bash
+chmod 600 .env
+sudo chown $USER:$USER .env
+```
+
 ---
 
-## Крок 9 — Налаштування Google OAuth
+### Крок 9 — Google OAuth
 
 1. Відкрити [console.cloud.google.com](https://console.cloud.google.com)
-2. Створити новий проєкт (або вибрати існуючий)
+2. Створити проєкт або вибрати існуючий
 3. **APIs & Services → Enable APIs → Google People API** (увімкнути)
 4. **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**
-5. Тип застосунку: **Web application**
+5. Тип: **Web application**
 6. Authorized JavaScript origins:
    ```
-   https://health.вашдомен.com
+   https://ВАШ_ДОМЕН
    ```
 7. Authorized redirect URIs:
    ```
-   https://health.вашдомен.com/api/auth/google/callback
+   https://ВАШ_ДОМЕН/api/auth/google/callback
    ```
-8. Скопіювати **Client ID** і **Client Secret** → вставити в `.env`
+8. Скопіювати Client ID і Client Secret → вставити в `.env`
 
-> OAuth consent screen → External → додати свій email як тестового користувача
+> OAuth consent screen → External → додати свій email як тестового користувача (поки додаток не верифіковано Google).
 
 ---
 
-## Крок 10 — Перший тест запуску
+### Крок 10 — Тест запуску
 
 ```bash
 node server/index.js
@@ -198,24 +198,23 @@ node server/index.js
 Очікуваний вивід:
 ```
 [db] Database initialized
-[push] Reminder scheduler started   (або: VAPID keys not set — якщо ще не заповнили)
 [server] Listening on port 3000
 [server] NODE_ENV=production
 ```
 
-Якщо помилка БД — перевірте DATABASE_URL і що PostgreSQL запущено.
+Якщо помилка БД — перевірте `DATABASE_URL` і що PostgreSQL запущено.
 
 Зупинити: `Ctrl+C`
 
 ---
 
-## Крок 11 — systemd сервіс (автозапуск)
+### Крок 11 — systemd сервіс
 
 ```bash
 sudo nano /etc/systemd/system/blood.service
 ```
 
-Вміст файлу:
+Вміст (замініть `maan` на ваш логін і шлях до проєкту):
 
 ```ini
 [Unit]
@@ -225,8 +224,8 @@ Requires=postgresql.service
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/blood
+User=maan
+WorkingDirectory=/home/maan/blood
 ExecStart=/usr/bin/node server/index.js
 Restart=on-failure
 RestartSec=5
@@ -245,85 +244,91 @@ sudo systemctl start blood
 sudo systemctl status blood
 ```
 
-Перегляд логів:
+Якщо статус `failed` — дивіться логи:
+
 ```bash
-journalctl -u blood -f
+journalctl -u blood -n 30 --no-pager
 ```
+
+Найпоширеніші причини збою:
+
+| Помилка в логах | Причина | Рішення |
+|---|---|---|
+| `OAuth2Strategy requires a clientID` | `.env` не читається сервісом | `sudo chown $USER:$USER .env` |
+| `password authentication failed` | Неправильний пароль в `DATABASE_URL` | Перевірте пароль у `.env` |
+| `Cannot find module` | `node_modules` не встановлено | `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install` |
+| `EACCES permission denied` | Файли належать root | `sudo chown -R $USER:$USER ~/blood` |
 
 ---
 
-## Крок 12 — Cloudflare Tunnel
+### Крок 12 — Cloudflare Tunnel
 
-### Встановлення cloudflared (ARM64)
+#### Встановлення cloudflared (ARM64)
 
 ```bash
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 \
-  -o /tmp/cloudflared
-sudo mv /tmp/cloudflared /usr/local/bin/cloudflared
+sudo curl -sL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64" \
+  -o /usr/local/bin/cloudflared
 sudo chmod +x /usr/local/bin/cloudflared
 cloudflared --version
 ```
 
-### Авторизація в Cloudflare
+#### Авторизація
 
 ```bash
 cloudflared tunnel login
 ```
 
-Відкриється посилання — перейдіть в браузері, виберіть свій домен, авторизуйтесь.
+Відкриється посилання — перейдіть в браузері, виберіть домен, авторизуйтесь. Сертифікат збережеться в `~/.cloudflared/cert.pem`.
 
-### Створення тунелю
+#### Створення тунелю
 
 ```bash
 cloudflared tunnel create blood-health
 ```
 
-Вивід покаже UUID тунелю, наприклад:
-```
-Created tunnel blood-health with id a1b2c3d4-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-```
+Запишіть UUID з виводу, наприклад: `9292be0a-900c-4803-b0df-9c218027b0be`
 
-### DNS запис
+#### DNS запис
 
 ```bash
-cloudflared tunnel route dns blood-health health.вашдомен.com
+cloudflared tunnel route dns blood-health ВАШ_ДОМЕН
 ```
 
-### Конфігурація тунелю
+Якщо отримали `Error 1016` в браузері — DNS запис не додано. Виконайте команду вище і зачекайте 1-2 хвилини.
+
+#### Конфігурація тунелю
 
 ```bash
 mkdir -p ~/.cloudflared
 nano ~/.cloudflared/config.yml
 ```
 
-Вміст:
+Вміст (замініть UUID і домен):
 
 ```yaml
 tunnel: blood-health
-credentials-file: /home/pi/.cloudflared/a1b2c3d4-xxxx-xxxx-xxxx-xxxxxxxxxxxx.json
+credentials-file: /home/maan/.cloudflared/ВАШ_UUID.json
 
 ingress:
-  - hostname: health.вашдомен.com
+  - hostname: ВАШ_ДОМЕН
     service: http://localhost:3000
   - service: http_status:404
 ```
 
-> Замініть UUID на свій з попереднього кроку.
-
-### Тест тунелю
+#### Тест тунелю
 
 ```bash
 cloudflared tunnel run blood-health
 ```
 
-Відкрийте `https://health.вашдомен.com` в браузері — має відкритися застосунок.
+Відкрийте `https://ВАШ_ДОМЕН` в браузері. Якщо все ок — `Ctrl+C`.
 
-`Ctrl+C` щоб зупинити.
+#### systemd сервіс для cloudflared
 
-### systemd сервіс для cloudflared
+> **Важливо:** `sudo cloudflared service install` **без** `--config` не знаходить конфіг, бо `sudo` змінює `HOME` на `/root`. Потрібно вказати шлях явно.
 
 ```bash
-sudo cloudflared service install
+sudo cloudflared --config ~/.cloudflared/config.yml service install
 sudo systemctl enable cloudflared
 sudo systemctl start cloudflared
 sudo systemctl status cloudflared
@@ -331,67 +336,72 @@ sudo systemctl status cloudflared
 
 ---
 
-## Крок 13 — Перевірка всього разом
+### Крок 13 — Перевірка
 
 ```bash
-# Перевірити статус сервісів
+# Статус усіх сервісів
 sudo systemctl status blood
 sudo systemctl status cloudflared
 sudo systemctl status postgresql
 
-# Перевірити що порт 3000 слухається
+# Порт слухається локально
 ss -tlnp | grep 3000
 
-# Переглянути логи застосунку
-journalctl -u blood -n 50
-
-# Переглянути логи тунелю
-journalctl -u cloudflared -n 20
+# HTTP тест
+curl -s http://localhost:3000/api/auth/me
+# Має повернути: {"error":"Unauthorized"}
 ```
 
-Відкрийте `https://health.вашдомен.com` — має з'явитися екран входу через Google.
+Відкрийте `https://ВАШ_ДОМЕН` — має з'явитись екран входу через Google.
 
 ---
 
-## Крок 14 — Перший вхід (адміністратор)
+### Крок 14 — Перший вхід і адміністратор
 
 Перший хто увійде через Google — автоматично отримує права адміністратора.
 
-Після входу додайте інших членів сім'ї через адмін-панель:
+Для додавання членів сім'ї: натисніть на своє ім'я у правому верхньому куті → **⚙️ Адмін** → введіть email → **Додати**.
 
-```
-Профіль (правий верхній кут) → Адмін → Додати користувача → ввести email
-```
-
-Після цього вони зможуть увійти зі своїм Google акаунтом.
+Після цього людина зможе увійти зі своїм Google акаунтом (її email має бути в системі заздалегідь).
 
 ---
 
 ## Оновлення застосунку
 
 ```bash
-cd /home/pi/blood
-git pull
-npm install
+cd ~/blood
+git pull origin claude/dreamy-cannon-p1768u
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
 sudo systemctl restart blood
 ```
 
 ---
 
-## Резервне копіювання бази даних
+## Резервне копіювання
 
-Додати в cron щоденний бекап:
+Налаштовується автоматично через візард (крок 9) або вручну:
 
 ```bash
+mkdir -p ~/backups
 crontab -e
 ```
 
+Додати рядок:
+
 ```cron
-0 3 * * * pg_dump -U health health > /home/pi/backups/health_$(date +\%Y\%m\%d).sql
+0 3 * * * pg_dump -U health health > /home/maan/backups/health_$(date +\%Y\%m\%d).sql
 ```
 
+Ручний бекап:
+
 ```bash
-mkdir -p /home/pi/backups
+pg_dump -U health health > ~/backups/health_manual.sql
+```
+
+Відновлення:
+
+```bash
+psql -U health health < ~/backups/health_20260619.sql
 ```
 
 ---
@@ -400,33 +410,55 @@ mkdir -p /home/pi/backups
 
 **Застосунок не запускається**
 ```bash
-journalctl -u blood -n 100 --no-pager
+journalctl -u blood -n 50 --no-pager
+# або запустити вручну для детальної помилки:
+cd ~/blood && node server/index.js
 ```
 
-**Помилка PostgreSQL "password authentication failed"**
+**OAuth2Strategy requires a clientID (сервіс не стартує)**
 ```bash
-sudo -u postgres psql -c "ALTER USER health WITH PASSWORD 'новий_пароль';"
-# Оновити DATABASE_URL в .env
+ls -la ~/blood/.env          # перевірте що файл існує і належить вашому юзеру
+sudo chown $USER:$USER ~/blood/.env
 sudo systemctl restart blood
 ```
 
-**Puppeteer "Could not find Chromium"**
+**npm install зависає на 30+ хвилин**
 ```bash
-which chromium-browser
-# Якщо немає:
-sudo apt install -y chromium-browser
+# Зупиніть Ctrl+C і запустіть правильно:
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
 ```
 
-**Cloudflare tunnel не підключається**
+**Chromium не знайдено (помилка PDF)**
 ```bash
-cloudflared tunnel info blood-health
-journalctl -u cloudflared -n 50
+which chromium          # має бути /usr/bin/chromium
+sudo apt install -y chromium
 ```
 
-**VAPID помилка при push**
+**Error 1016 — Origin DNS error (Cloudflare)**
 ```bash
-# Перегенерувати ключі
-npx web-push generate-vapid-keys
-# Оновити .env і перезапустити
+# DNS запис не створено:
+cloudflared tunnel route dns blood-health ВАШ_ДОМЕН
+# Зачекайте 1-2 хвилини і оновіть сторінку
+```
+
+**cloudflared.service could not be found**
+```bash
+# Сервіс не встановлено або встановлено без конфігу:
+sudo cloudflared --config ~/.cloudflared/config.yml service install
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
+```
+
+**PostgreSQL: password authentication failed**
+```bash
+sudo -u postgres psql -c "ALTER USER health WITH PASSWORD 'новий_пароль';"
+# Оновити DATABASE_URL в .env і перезапустити
+sudo systemctl restart blood
+```
+
+**VAPID помилка при push-нагадуваннях**
+```bash
+node -e "const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log('Public: '+k.publicKey+'\nPrivate: '+k.privateKey)"
+# Оновити VAPID_PUBLIC_KEY і VAPID_PRIVATE_KEY в .env
 sudo systemctl restart blood
 ```

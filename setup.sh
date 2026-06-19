@@ -72,8 +72,7 @@ step "Крок 2/9 — npm залежності"
 
 cd "$APP_DIR"
 info "npm install (без завантаження Chromium)..."
-npm install &>/dev/null
-npm install puppeteer --ignore-scripts &>/dev/null
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
 ok "Залежності встановлено"
 
 info "Patching Puppeteer — системний Chromium..."
@@ -179,7 +178,8 @@ BASE_URL=${BASE_URL}
 EOF
 
 chmod 600 "$ENV_FILE"
-ok ".env створено (права 600)"
+chown "${SERVICE_USER}:${SERVICE_USER}" "$ENV_FILE"
+ok ".env створено (права 600, власник ${SERVICE_USER})"
 
 # =============================================================================
 #  Крок 7 — systemd сервіс
@@ -264,7 +264,8 @@ chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.yml"
 ok "config.yml створено"
 
 info "Встановлення cloudflared як сервісу..."
-cloudflared service install 2>/dev/null || true
+# Потрібно вказати конфіг явно — sudo змінює HOME на /root і cloudflared не знаходить config.yml
+cloudflared --config "${CONFIG_DIR}/config.yml" service install
 systemctl enable cloudflared &>/dev/null
 systemctl restart cloudflared
 
