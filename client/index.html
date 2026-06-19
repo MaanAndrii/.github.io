@@ -1246,8 +1246,14 @@ async function saveEntry() {
     saved: new Date().toISOString()
   };
 
+  const prevDate = editingDate;
+  const dateChanged = prevDate !== null && prevDate !== date;
+
   // Optimistically update local state
-  entries = entries.filter(e => e.date !== date);
+  if (dateChanged) {
+    entries = entries.filter(e => String(e.date).slice(0,10) !== prevDate);
+  }
+  entries = entries.filter(e => String(e.date).slice(0,10) !== date);
   entries.push(entry);
   entries.sort((a,b) => String(b.date).localeCompare(String(a.date)));
   saveLocalData(entries);
@@ -1257,11 +1263,10 @@ async function saveEntry() {
    'e_sys_l','e_dia_l','e_sys_r','e_dia_r','e_pulse','weight']
     .forEach(id => document.getElementById(id).value = '');
 
-  const wasEditing = editingDate !== null;
   editingDate = null;
   setEditMode(false);
 
-  if (wasEditing) {
+  if (prevDate !== null) {
     showToast('✏️ Запис оновлено!');
     showPage('history');
   } else {
@@ -1271,6 +1276,10 @@ async function saveEntry() {
 
   // Save to server
   try {
+    // If date changed — delete old record first, then save new
+    if (dateChanged) {
+      await deleteEntryFromServer(prevDate);
+    }
     await saveEntryToServer(entry);
   } catch (err) {
     showToast('⚠️ Помилка збереження на сервері: ' + err.message, 'var(--warn)');
