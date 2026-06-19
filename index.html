@@ -257,6 +257,19 @@
       gap: 10px;
       margin-bottom: 12px;
     }
+    .summary-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .summary-col-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      padding: 3px 0 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+    }
     .summary-item {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -923,29 +936,35 @@ function renderTodaySummary() {
   const m = e.morning, ev = e.evening;
 
   grid.innerHTML = `
-    <div class="summary-item">
-      <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}</div>
-      <div class="summary-label">🌅 Ранок — ліва</div>
+    <div class="summary-col">
+      <div class="summary-col-header" style="color:var(--morning)">🌅 Ранок</div>
+      <div class="summary-item">
+        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}</div>
+        <div class="summary-label">ліва рука</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}</div>
+        <div class="summary-label">права рука</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value val-pulse">${m.pulse ?? '—'}</div>
+        <div class="summary-label">💚 Пульс</div>
+      </div>
     </div>
-    <div class="summary-item">
-      <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}</div>
-      <div class="summary-label">🌅 Ранок — права</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value val-evening" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}</div>
-      <div class="summary-label">🌙 Вечір — ліва</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value val-evening" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}</div>
-      <div class="summary-label">🌙 Вечір — права</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value val-pulse">${m.pulse ?? '—'}</div>
-      <div class="summary-label">💚 Пульс ранок</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value val-pulse">${ev.pulse ?? '—'}</div>
-      <div class="summary-label">💚 Пульс вечір</div>
+    <div class="summary-col">
+      <div class="summary-col-header" style="color:var(--evening)">🌙 Вечір</div>
+      <div class="summary-item">
+        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}</div>
+        <div class="summary-label">ліва рука</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}</div>
+        <div class="summary-label">права рука</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value val-pulse">${ev.pulse ?? '—'}</div>
+        <div class="summary-label">💚 Пульс</div>
+      </div>
     </div>
     ${e.weight ? `<div class="summary-item" style="grid-column:1/-1">
       <div class="summary-value val-weight">${e.weight} кг</div>
