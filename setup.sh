@@ -178,7 +178,8 @@ BASE_URL=${BASE_URL}
 EOF
 
 chmod 600 "$ENV_FILE"
-ok ".env створено (права 600)"
+chown "${SERVICE_USER}:${SERVICE_USER}" "$ENV_FILE"
+ok ".env створено (права 600, власник ${SERVICE_USER})"
 
 # =============================================================================
 #  Крок 7 — systemd сервіс
