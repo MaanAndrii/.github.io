@@ -1076,6 +1076,7 @@ async function saveEntryToServer(entry) {
 
 async function deleteEntryFromServer(date) {
   const r = await fetch('/api/entries/' + date, { method: 'DELETE' });
+  if (r.status === 404) return; // Already gone — treat as success
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
     throw new Error(err.error || 'Server error');
