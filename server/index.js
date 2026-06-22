@@ -21,6 +21,9 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
 
+// ── Health check (no auth required — used by monitoring/Cloudflare) ─────────
+app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+
 // ── API Routes ──────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
 app.use('/api/entries', entriesRouter);

@@ -51,6 +51,24 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
     }
 
+    const inRange = (v, min, max) => v == null || (Number.isInteger(Number(v)) && v >= min && v <= max);
+    const bpFields = [
+      ['morning.sys_l', morning.sys_l, 60, 240], ['morning.dia_l', morning.dia_l, 40, 140],
+      ['morning.sys_r', morning.sys_r, 60, 240], ['morning.dia_r', morning.dia_r, 40, 140],
+      ['morning.pulse', morning.pulse, 30, 200],
+      ['evening.sys_l', evening.sys_l, 60, 240], ['evening.dia_l', evening.dia_l, 40, 140],
+      ['evening.sys_r', evening.sys_r, 60, 240], ['evening.dia_r', evening.dia_r, 40, 140],
+      ['evening.pulse', evening.pulse, 30, 200],
+    ];
+    for (const [name, val, min, max] of bpFields) {
+      if (!inRange(val, min, max)) {
+        return res.status(400).json({ error: `${name} must be between ${min} and ${max}` });
+      }
+    }
+    if (weight != null && (isNaN(weight) || weight < 20 || weight > 300)) {
+      return res.status(400).json({ error: 'weight must be between 20 and 300 kg' });
+    }
+
     const result = await pool.query(
       `INSERT INTO entries (
         user_id, date,
