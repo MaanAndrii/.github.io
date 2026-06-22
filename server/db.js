@@ -48,6 +48,11 @@ async function initDb() {
       UNIQUE(user_id, date)
     )
   `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_entries_user_date
+    ON entries(user_id, date DESC)
+  `);
 }
 
 module.exports = { pool, initDb };
