@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
@@ -34,13 +34,13 @@
       --radius:         14px;
       --radius-sm:      8px;
       --mono:           'JetBrains Mono', monospace;
-      --font:           'Inter', sans-serif;
+      --font:           'Noto Sans', sans-serif;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Noto Sans', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100dvh;
@@ -772,7 +772,7 @@
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
       color: var(--text);
-      font-family: 'Inter', sans-serif;
+      font-family: 'Noto Sans', sans-serif;
       font-size: 14px;
       padding: 10px 12px;
       width: 100%;
@@ -830,6 +830,93 @@
       gap: 8px;
       margin-top: 20px;
     }
+
+    /* ── LOADING OVERLAY (R) ── */
+    #loadingOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15,22,40,.72);
+      z-index: 4000;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #loadingOverlay.show { display: flex; }
+    .spinner {
+      width: 46px;
+      height: 46px;
+      border: 3px solid rgba(79,142,247,.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-label { font-size: 13px; color: var(--text-secondary); }
+
+    /* ── STALE BANNER (S) ── */
+    #staleBanner {
+      display: none;
+      background: rgba(251,146,60,.12);
+      border-bottom: 1px solid rgba(251,146,60,.3);
+      color: var(--warn);
+      font-size: 12px;
+      padding: 8px 16px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    #staleBanner.show { display: block; }
+
+    /* ── PROFILE AVATAR ── */
+    .profile-avatar-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .profile-avatar-img {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+    }
+    .profile-avatar-initials {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 26px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid var(--accent);
+    }
+    .profile-meta {
+      text-align: center;
+      margin-top: 10px;
+    }
+    .profile-meta-email { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+    .profile-meta-since { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .profile-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+    .profile-field-label {
+      font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px;
+    }
+    .profile-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      padding: 10px 12px;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .profile-input:focus { border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -889,6 +976,9 @@
 </nav>
 
 <main>
+
+  <!-- Stale data banner -->
+  <div id="staleBanner">⚠️ Немає з'єднання з сервером — показано кешовані дані. <a href="#" onclick="fetchEntries().then(()=>{renderTodaySummary();renderHistory();});return false" style="color:var(--warn);text-decoration:underline">Оновити</a></div>
 
   <!-- ══ ADD PAGE ══ -->
   <div class="page active" id="page-add">
@@ -1110,48 +1200,32 @@
   </div>
 </div>
 
-<!-- ══ ADMIN MODAL ══ -->
-<div class="modal-overlay" id="adminModal">
-  <div class="modal-box" style="max-width:440px;width:90%">
-    <div class="modal-title">⚙️ Адмін — Користувачі</div>
-    <div id="adminUsersList" style="margin-bottom:16px;max-height:260px;overflow-y:auto"></div>
-    <div style="border-top:1px solid var(--border);padding-top:14px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">Додати користувача</div>
-      <div class="field" style="margin-bottom:8px">
-        <input type="email" id="adminNewEmail" placeholder="email@example.com" style="width:100%;box-sizing:border-box" />
-      </div>
-      <div class="field" style="margin-bottom:12px">
-        <input type="text" id="adminNewName" placeholder="Ім'я (необов'язково)" style="width:100%;box-sizing:border-box" />
-      </div>
-      <button class="btn-save" style="width:100%;margin-top:0" onclick="adminAddUser()">Додати</button>
-    </div>
-    <div class="modal-actions" style="margin-top:12px">
-      <button class="btn-outline" style="flex:1" onclick="closeAdminPanel()">Закрити</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ PROFILE MODAL ══ -->
 <div class="modal-overlay" id="profileModal">
-  <div class="modal-box" style="max-width:380px;width:90%">
-    <div class="modal-title">👤 Особисті дані</div>
+  <div class="modal-box" style="max-width:390px;width:92%;max-height:90dvh;overflow-y:auto">
+    <div class="modal-title">👤 Профіль</div>
 
-    <div class="field" style="margin-bottom:14px">
-      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px">Google-акаунт</label>
-      <div id="profileEmail" style="font-size:13px;color:var(--text-secondary);padding:8px 0"></div>
+    <!-- Avatar + name + email -->
+    <div class="profile-avatar-wrap">
+      <div id="profileAvatarEl"></div>
+      <div class="profile-meta">
+        <div id="profileDisplayName" style="font-size:16px;font-weight:600"></div>
+        <div class="profile-meta-email" id="profileEmailDisplay"></div>
+        <div class="profile-meta-since" id="profileSinceDisplay"></div>
+      </div>
     </div>
 
-    <div class="field" style="margin-bottom:14px">
-      <label for="profileName" style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px">Ім'я</label>
-      <input type="text" id="profileName" placeholder="Ваше ім'я"
-        style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;box-sizing:border-box;outline:none"
-        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
+    <hr class="profile-divider" />
+
+    <div style="margin-bottom:14px">
+      <label for="profileName" class="profile-field-label">Ім'я</label>
+      <input type="text" id="profileName" class="profile-input" placeholder="Ваше повне ім'я" />
     </div>
 
-    <div class="field" style="margin-bottom:20px">
-      <label for="profileDob" style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px">Дата народження</label>
-      <input type="date" id="profileDob" style="width:100%" />
-      <div style="font-size:11px;color:var(--muted);margin-top:5px">Використовується у PDF-довідці для лікаря</div>
+    <div style="margin-bottom:14px">
+      <label for="profileDob" class="profile-field-label">Дата народження</label>
+      <input type="date" id="profileDob" class="profile-input" style="color-scheme:dark" />
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Відображається у PDF-довідці для лікаря</div>
     </div>
 
     <div class="modal-actions">
@@ -1161,15 +1235,28 @@
   </div>
 </div>
 
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-label" id="loadingLabel">Зачекайте…</div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
-const DB_KEY = 'health_entries_v2';
-const REMINDER_KEY = 'health_reminders';
+const DB_KEY        = 'health_entries_v2';
+const REMINDER_KEY  = 'health_reminders';
+
+// ── Constants (U) ────────────────────────────────────────────────────────────
+const ROLLER_ITEM_H    = 52;   // roller item height px
+const PDF_DEFAULT_DAYS = 30;   // default PDF date range
+const FILTER_DEBOUNCE  = 120;  // ms debounce for filter changes
+const HISTORY_MONTHS   = 3;    // max months shown in charts by default
 
 let entries = [];
 let currentUser = null;
+let isDataStale = false;
 let historyFilter = 'all';
 let statsFilter = '7';
 let charts = {};
@@ -1184,17 +1271,38 @@ function saveLocalData(arr) {
   localStorage.setItem(DB_KEY, JSON.stringify(arr));
 }
 
+// ── Loading helpers (R) ──────────────────────────────────────────────────────
+function showLoading(label = 'Зачекайте…') {
+  document.getElementById('loadingLabel').textContent = label;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('show');
+}
+
+// ── Stale banner helper (S) ──────────────────────────────────────────────────
+function setDataStale(stale) {
+  isDataStale = stale;
+  document.getElementById('staleBanner').classList.toggle('show', stale);
+}
+
 // ── API CALLS ───────────────────────────────────────────────────────────────
 async function fetchEntries() {
   try {
     const r = await fetch('/api/entries');
-    if (!r.ok) return;
+    if (!r.ok) {
+      entries = loadLocalData();
+      setDataStale(true);
+      return;
+    }
     const data = await r.json();
     entries = data;
     saveLocalData(entries);
+    setDataStale(false);
   } catch (err) {
     console.warn('fetchEntries failed, using local cache:', err);
     entries = loadLocalData();
+    setDataStale(true);
   }
 }
 
@@ -1313,13 +1421,6 @@ function renderUserChip() {
   profileItem.onclick = () => { menu.classList.remove('open'); openProfileModal(); };
   menu.appendChild(profileItem);
 
-  if (currentUser.is_admin) {
-    const adminItem = document.createElement('div');
-    adminItem.className = 'user-menu-item';
-    adminItem.textContent = '⚙️ Адмін';
-    adminItem.onclick = () => { menu.classList.remove('open'); showAdminPanel(); };
-    menu.appendChild(adminItem);
-  }
   const logoutItem = document.createElement('div');
   logoutItem.className = 'user-menu-item danger';
   logoutItem.textContent = '🚪 Вийти';
@@ -1333,8 +1434,34 @@ function toggleUserMenu() {
 
 function openProfileModal() {
   if (!currentUser) return;
-  document.getElementById('profileEmail').textContent = currentUser.email || '';
-  document.getElementById('profileName').value = currentUser.name || '';
+  const name     = currentUser.name || '';
+  const initials = name.split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase() || '?';
+
+  // Avatar
+  const avatarEl = document.getElementById('profileAvatarEl');
+  if (currentUser.avatar_url) {
+    const img = document.createElement('img');
+    img.src = currentUser.avatar_url;
+    img.alt = initials;
+    img.className = 'profile-avatar-img';
+    img.onerror = () => { avatarEl.innerHTML = `<div class="profile-avatar-initials">${initials}</div>`; };
+    avatarEl.innerHTML = '';
+    avatarEl.appendChild(img);
+  } else {
+    avatarEl.innerHTML = `<div class="profile-avatar-initials">${initials}</div>`;
+  }
+
+  document.getElementById('profileDisplayName').textContent = name || '—';
+  document.getElementById('profileEmailDisplay').textContent = currentUser.email || '';
+  if (currentUser.created_at) {
+    const d = new Date(currentUser.created_at);
+    const fmt = d.toLocaleDateString('uk-UA', { day:'2-digit', month:'long', year:'numeric' });
+    document.getElementById('profileSinceDisplay').textContent = `У системі з ${fmt}`;
+  } else {
+    document.getElementById('profileSinceDisplay').textContent = '';
+  }
+
+  document.getElementById('profileName').value = name;
   document.getElementById('profileDob').value  = currentUser.date_of_birth
     ? String(currentUser.date_of_birth).slice(0, 10) : '';
   document.getElementById('profileModal').classList.add('open');
@@ -1347,12 +1474,14 @@ function closeProfileModal() {
 async function saveProfile() {
   const name          = document.getElementById('profileName').value.trim();
   const date_of_birth = document.getElementById('profileDob').value || null;
+  showLoading('Збереження профілю…');
   try {
     const r = await fetch('/api/users/me', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name || null, date_of_birth }),
     });
+    hideLoading();
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Помилка');
     const updated = await r.json();
     currentUser = { ...currentUser, ...updated };
@@ -1360,6 +1489,7 @@ async function saveProfile() {
     closeProfileModal();
     showToast('✅ Профіль збережено');
   } catch (err) {
+    hideLoading();
     showToast('⚠️ ' + err.message, 'var(--warn)');
   }
 }
@@ -1670,6 +1800,7 @@ async function saveEntry() {
   const prevDate = editingDate;
   const dateChanged = prevDate !== null && prevDate !== date;
 
+  showLoading('Збереження…');
   try {
     const saved = await saveEntryToServer(entry);
     if (dateChanged) await deleteEntryFromServer(prevDate);
@@ -1679,9 +1810,11 @@ async function saveEntry() {
     entries.sort((a,b) => String(b.date).localeCompare(String(a.date)));
     saveLocalData(entries);
   } catch (err) {
+    hideLoading();
     showToast('⚠️ Помилка збереження: ' + err.message, 'var(--warn)');
     return;
   }
+  hideLoading();
 
   resetRollerState();
   document.getElementById('weight').value = '';
@@ -2223,7 +2356,7 @@ async function exportPDF() {
   }
 
   closePdfModal();
-  showToast('⏳ Формуємо PDF…', 'var(--accent)');
+  showLoading('Формуємо PDF…');
 
   try {
     const r = await fetch('/api/pdf', {
@@ -2244,8 +2377,10 @@ async function exportPDF() {
     a.download = `health_report_${dateFrom}_${dateTo}.pdf`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
+    hideLoading();
     showToast('📋 PDF завантажено!');
   } catch (err) {
+    hideLoading();
     showToast('❌ Помилка: ' + err.message, 'var(--warn)');
   }
 }
@@ -2253,73 +2388,6 @@ async function exportPDF() {
 // Close modal on overlay click
 document.getElementById('pdfModal').addEventListener('click', function(e) {
   if (e.target === this) closePdfModal();
-});
-
-// ── ADMIN PANEL ──────────────────────────────────────────────────────────────
-async function showAdminPanel() {
-  document.getElementById('adminModal').classList.add('open');
-  await adminLoadUsers();
-}
-
-function closeAdminPanel() {
-  document.getElementById('adminModal').classList.remove('open');
-}
-
-async function adminLoadUsers() {
-  const list = document.getElementById('adminUsersList');
-  list.innerHTML = '<div style="color:var(--text-secondary);font-size:13px">Завантаження…</div>';
-  try {
-    const r = await fetch('/api/users');
-    if (!r.ok) throw new Error();
-    const users = await r.json();
-    if (!users.length) { list.innerHTML = '<div style="color:var(--text-secondary);font-size:13px">Немає користувачів</div>'; return; }
-    list.innerHTML = users.map(u => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-size:14px;font-weight:500">${u.name || '—'}</div>
-          <div style="font-size:12px;color:var(--text-secondary)">${u.email}${u.is_admin ? ' · адмін' : ''}</div>
-        </div>
-        ${u.id !== currentUser.id ? `<button class="btn-outline" style="padding:4px 10px;font-size:12px;color:var(--danger);border-color:var(--danger)" onclick="adminDeleteUser(${u.id},'${u.email}')">Видалити</button>` : '<span style="font-size:12px;color:var(--text-secondary)">ви</span>'}
-      </div>`).join('');
-  } catch {
-    list.innerHTML = '<div style="color:var(--danger);font-size:13px">Помилка завантаження</div>';
-  }
-}
-
-async function adminAddUser() {
-  const email = document.getElementById('adminNewEmail').value.trim();
-  const name = document.getElementById('adminNewName').value.trim();
-  if (!email) { showToast('Введіть email', 'var(--danger)'); return; }
-  try {
-    const r = await fetch('/api/users/invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name })
-    });
-    if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Помилка'); }
-    document.getElementById('adminNewEmail').value = '';
-    document.getElementById('adminNewName').value = '';
-    showToast('Користувача додано', 'var(--success)');
-    await adminLoadUsers();
-  } catch (e) {
-    showToast(e.message, 'var(--danger)');
-  }
-}
-
-async function adminDeleteUser(id, email) {
-  if (!confirm(`Видалити користувача ${email}?`)) return;
-  try {
-    const r = await fetch(`/api/users/${id}`, { method: 'DELETE' });
-    if (!r.ok) throw new Error();
-    showToast('Користувача видалено', 'var(--success)');
-    await adminLoadUsers();
-  } catch {
-    showToast('Помилка видалення', 'var(--danger)');
-  }
-}
-
-document.getElementById('adminModal').addEventListener('click', function(e) {
-  if (e.target === this) closeAdminPanel();
 });
 
 document.getElementById('profileModal').addEventListener('click', function(e) {

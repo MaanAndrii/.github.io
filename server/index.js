@@ -4,6 +4,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const passport = require('passport');
 const path = require('path');
+const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 
 const { initDb } = require('./db');
@@ -21,12 +22,32 @@ const PORT = process.env.PORT || 3000;
 const generalLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
 const authLimit    = rateLimit({ windowMs: 15 * 60 * 1000, max: 20,  standardHeaders: true, legacyHeaders: false });
 
+// ── Logger (V) ───────────────────────────────────────────────────────────────
+const LOG_FILE = path.join(__dirname, '..', 'logs', 'app.log');
+fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+function logLine(level, msg) {
+  const line = `${new Date().toISOString()} [${level}] ${msg}\n`;
+  process.stdout.write(line);
+  fs.appendFile(LOG_FILE, line, () => {});
+}
+// Patch console.error to also write to file
+const _origError = console.error.bind(console);
+console.error = (...args) => { _origError(...args); fs.appendFile(LOG_FILE, `${new Date().toISOString()} [ERROR] ${args.join(' ')}\n`, () => {}); };
+
 // ── Middleware ──────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use('/api/', generalLimit);
 app.use('/api/auth', authLimit);
+
+// Simple request logger
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (req.path.startsWith('/api')) logLine('HTTP', `${req.method} ${req.path} ${res.statusCode}`);
+  });
+  next();
+});
 
 // ── Health check (no auth required — used by monitoring/Cloudflare) ─────────
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
