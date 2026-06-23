@@ -55,6 +55,11 @@ async function initDb() {
   await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS e_pulse_l SMALLINT`);
   await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS e_pulse_r SMALLINT`);
 
+  // Add password_hash column for local auth
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
+  // Migrate legacy 'free' tier to 'premium'
+  await pool.query(`UPDATE users SET subscription_tier = 'premium' WHERE subscription_tier = 'free' OR subscription_tier IS NULL`);
+
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_entries_user_date
     ON entries(user_id, date DESC)

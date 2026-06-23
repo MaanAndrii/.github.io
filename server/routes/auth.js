@@ -2,128 +2,165 @@ const express = require('express');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { pool } = require('../db');
 
 const router = express.Router();
 
-// Configure Passport Google Strategy
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.GOOGLE_CALLBACK_URL,
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    const email = profile.emails?.[0]?.value;
-    if (!email) return done(new Error('No email from Google'), null);
+// Configure Passport Google Strategy (only if credentials are provided)
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL,
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      const email = profile.emails?.[0]?.value;
+      if (!email) return done(new Error('No email from Google'), null);
 
-    // Check if any users exist
-    const countResult = await pool.query('SELECT COUNT(*) FROM users');
-    const userCount = parseInt(countResult.rows[0].count, 10);
-
-    if (userCount === 0) {
-      // First user ever — create as admin
-      const result = await pool.query(
-        `INSERT INTO users (email, name, avatar_url, google_id, refresh_token, is_admin)
-         VALUES ($1, $2, $3, $4, $5, TRUE)
-         ON CONFLICT (email) DO UPDATE SET
-           google_id = EXCLUDED.google_id,
-           name = EXCLUDED.name,
-           avatar_url = EXCLUDED.avatar_url,
-           refresh_token = EXCLUDED.refresh_token,
-           is_admin = TRUE
-         RETURNING *`,
-        [
-          email,
-          profile.displayName,
-          profile.photos?.[0]?.value,
-          profile.id,
-          refreshToken,
-        ]
+      const existing = await pool.query(
+        'SELECT * FROM users WHERE google_id = $1 OR email = $2 LIMIT 1',
+        [profile.id, email]
       );
+
+      if (!existing.rows.length) {
+        return done(null, false, { message: 'access_denied' });
+      }
+
+      const result = await pool.query(
+        `UPDATE users SET
+           google_id = $1,
+           name = $2,
+           avatar_url = $3,
+           refresh_token = $4
+         WHERE id = $5
+         RETURNING *`,
+        [profile.id, profile.displayName, profile.photos?.[0]?.value, refreshToken, existing.rows[0].id]
+      );
+
       return done(null, result.rows[0]);
+    } catch (err) {
+      return done(err, null);
     }
-
-    // Check if user exists (by google_id or email)
-    const existing = await pool.query(
-      'SELECT * FROM users WHERE google_id = $1 OR email = $2 LIMIT 1',
-      [profile.id, email]
-    );
-
-    if (!existing.rows.length) {
-      // User not registered — deny access
-      return done(null, false, { message: 'access_denied' });
-    }
-
-    // Update user info
-    const result = await pool.query(
-      `UPDATE users SET
-         google_id = $1,
-         name = $2,
-         avatar_url = $3,
-         refresh_token = $4
-       WHERE id = $5
-       RETURNING *`,
-      [
-        profile.id,
-        profile.displayName,
-        profile.photos?.[0]?.value,
-        refreshToken,
-        existing.rows[0].id,
-      ]
-    );
-
-    return done(null, result.rows[0]);
-  } catch (err) {
-    return done(err, null);
-  }
-}));
+  }));
+}
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
-// Cookie settings helper
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 function cookieOpts() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    maxAge: 30 * 24 * 60 * 60 * 1000,
   };
 }
 
 function issueJwt(user) {
   return jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      is_admin: user.is_admin,
-    },
+    { id: user.id, email: user.email, name: user.name, is_admin: user.is_admin },
     process.env.JWT_SECRET,
     { expiresIn: '30d' }
   );
 }
 
-// GET /api/auth/google
-router.get('/google', passport.authenticate('google', {
-  scope: ['profile', 'email'],
-  session: false,
-}));
+// ── Google OAuth ──────────────────────────────────────────────────────────────
 
-// GET /api/auth/google/callback
+router.get('/google', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.redirect('/?error=google_not_configured');
+  }
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next);
+});
+
 router.get('/google/callback',
   passport.authenticate('google', { session: false, failureRedirect: '/?error=access_denied' }),
   (req, res) => {
-    if (!req.user) {
-      return res.redirect('/?error=access_denied');
-    }
+    if (!req.user) return res.redirect('/?error=access_denied');
     const token = issueJwt(req.user);
     res.cookie('token', token, cookieOpts());
     res.redirect('/');
   }
 );
 
-// POST /api/auth/logout
+// ── Local Register ────────────────────────────────────────────────────────────
+
+router.post('/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body ?? {};
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: "Введіть ім'я" });
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Невірний формат email' });
+    }
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'Пароль має містити мінімум 8 символів' });
+    }
+
+    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (exists.rows.length) {
+      return res.status(409).json({ error: 'Цей email вже зареєстрований' });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+
+    const result = await pool.query(
+      `INSERT INTO users (email, name, password_hash, subscription_tier, is_admin)
+       VALUES ($1, $2, $3, 'premium', FALSE)
+       RETURNING *`,
+      [email.toLowerCase(), name.trim(), hash]
+    );
+
+    const token = issueJwt(result.rows[0]);
+    res.cookie('token', token, cookieOpts());
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/auth/register error:', err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// ── Local Login ───────────────────────────────────────────────────────────────
+
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body ?? {};
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Введіть email і пароль' });
+    }
+
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (!result.rows.length) {
+      return res.status(401).json({ error: 'Невірний email або пароль' });
+    }
+
+    const user = result.rows[0];
+    if (!user.password_hash) {
+      return res.status(401).json({ error: 'Цей акаунт використовує вхід через Google' });
+    }
+
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Невірний email або пароль' });
+    }
+
+    const token = issueJwt(user);
+    res.cookie('token', token, cookieOpts());
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/auth/login error:', err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+
 router.post('/logout', (req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
@@ -133,7 +170,8 @@ router.post('/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-// GET /api/auth/me
+// ── Me ────────────────────────────────────────────────────────────────────────
+
 router.get('/me', async (req, res) => {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
@@ -142,7 +180,7 @@ router.get('/me', async (req, res) => {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const result = await pool.query(
       `SELECT id, email, name, avatar_url, is_admin, date_of_birth, created_at,
-              reminders_enabled, reminder_morning, reminder_evening
+              subscription_tier, reminders_enabled, reminder_morning, reminder_evening
        FROM users WHERE id = $1`,
       [payload.id]
     );
