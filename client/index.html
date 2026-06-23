@@ -917,6 +917,94 @@
       transition: border-color .15s;
     }
     .profile-input:focus { border-color: var(--accent); }
+
+    /* ── FAB / ADD BUTTON ── */
+    .fab {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity .15s;
+    }
+    .fab:active { opacity: .85; }
+
+    /* ── WEEK STRIP ── */
+    .week-strip {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding: 2px 0 6px;
+    }
+    .week-strip::-webkit-scrollbar { display: none; }
+    .week-day {
+      flex-shrink: 0;
+      width: 42px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 2px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      background: var(--card);
+      transition: border-color .15s, background .15s;
+      user-select: none;
+    }
+    .week-day:active { border-color: var(--accent); }
+    .week-day.today { border-color: var(--accent); background: rgba(79,142,247,.12); }
+    .week-day-name { font-size: 10px; color: var(--muted); font-weight: 500; }
+    .week-day-num  { font-size: 17px; font-weight: 700; line-height: 1; }
+    .week-day-dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+    .week-day-dot.full    { background: var(--accent2); }
+    .week-day-dot.partial { background: var(--warn); }
+
+    /* ── ENTRY MODAL ── */
+    .entry-modal-box {
+      max-width: 480px;
+      width: 98%;
+      max-height: 92dvh;
+      overflow-y: auto;
+      padding: 0;
+      border-radius: var(--radius);
+    }
+    .entry-modal-header {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 13px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      border-radius: var(--radius) var(--radius) 0 0;
+      gap: 10px;
+    }
+    .entry-modal-title { font-size: 15px; font-weight: 700; flex: 1; }
+    .entry-modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+    }
+    .entry-modal-close:active { background: var(--border); }
+    .entry-modal-body { padding: 14px 16px 20px; }
   </style>
 </head>
 <body>
@@ -961,8 +1049,8 @@
 </header>
 
 <nav>
-  <div class="tab active" onclick="showPage('add')">
-    <span class="tab-icon">➕</span>Запис
+  <div class="tab active" onclick="showPage('home')">
+    <span class="tab-icon">🏠</span>Головна
   </div>
   <div class="tab" onclick="showPage('history')">
     <span class="tab-icon">📋</span>Журнал
@@ -980,85 +1068,28 @@
   <!-- Stale data banner -->
   <div id="staleBanner">⚠️ Немає з'єднання з сервером — показано кешовані дані. <a href="#" onclick="fetchEntries().then(()=>{renderTodaySummary();renderHistory();});return false" style="color:var(--warn);text-decoration:underline">Оновити</a></div>
 
-  <!-- ══ ADD PAGE ══ -->
-  <div class="page active" id="page-add">
-
-    <!-- Edit mode banner -->
-    <div class="edit-banner" id="editBanner">
-      <span class="edit-banner-label">✏️ Режим редагування</span>
-      <button class="btn-cancel" onclick="cancelEdit()">Скасувати</button>
-    </div>
+  <!-- ══ HOME PAGE ══ -->
+  <div class="page active" id="page-home">
 
     <!-- Today summary -->
-    <div id="todaySummary" style="display:none">
-      <div class="section-label">Сьогодні</div>
+    <div class="section-label">Сьогодні</div>
+    <div id="todaySummary">
       <div class="summary-grid" id="summaryGrid"></div>
     </div>
 
-    <!-- Date -->
-    <div class="section-label">Дата запису</div>
-    <div class="card" style="padding:12px;display:flex;gap:8px;align-items:center">
-      <input type="date" id="entryDate" onchange="onDateChange(this.value)" style="flex:1" />
-      <button class="btn-outline" onclick="goToday()" style="white-space:nowrap;padding:9px 12px;font-size:12px">📅 Сьогодні</button>
+    <!-- Yesterday summary -->
+    <div class="section-label" style="margin-top:16px">Вчора</div>
+    <div id="yesterdaySummary">
+      <div class="summary-grid" id="yesterdaySummaryGrid"></div>
     </div>
 
-    <!-- BP Drum Rollers -->
-    <div class="section-label">❤️ Тиск та пульс</div>
-    <div class="card" style="padding:14px">
-      <div class="period-toggle">
-        <button class="toggle-btn active" id="btn-period-morning" onclick="setRollerPeriod('morning')">🌅 Ранок</button>
-        <button class="toggle-btn" id="btn-period-evening" onclick="setRollerPeriod('evening')">🌙 Вечір</button>
-      </div>
-      <div class="hand-toggle">
-        <button class="toggle-btn active" id="btn-hand-l" onclick="setRollerHand('l')">👈 Ліва рука</button>
-        <button class="toggle-btn" id="btn-hand-r" onclick="setRollerHand('r')">Права рука 👉</button>
-      </div>
-      <div class="rollers-row">
-        <div class="roller-col">
-          <div class="roller-col-label">Систолічний</div>
-          <div class="roller-outer">
-            <div class="roller-center-bar"></div>
-            <div class="roller-track" id="roller-sys"></div>
-          </div>
-        </div>
-        <div class="roller-col">
-          <div class="roller-col-label">Діастолічний</div>
-          <div class="roller-outer">
-            <div class="roller-center-bar"></div>
-            <div class="roller-track" id="roller-dia"></div>
-          </div>
-        </div>
-        <div class="roller-col">
-          <div class="roller-col-label">Пульс</div>
-          <div class="roller-outer">
-            <div class="roller-center-bar"></div>
-            <div class="roller-track" id="roller-pulse"></div>
-          </div>
-        </div>
-      </div>
-      <div class="roller-hint" id="rollerHint"></div>
-    </div>
+    <!-- Week strip -->
+    <div class="section-label" style="margin-top:16px">Останні 7 днів</div>
+    <div class="week-strip" id="weekStrip"></div>
 
-    <!-- Notes -->
-    <div class="section-label">📝 Нотатки</div>
-    <div class="card">
-      <textarea id="notes" rows="3" placeholder="Самопочуття, ліки, обставини..."
-        style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;resize:vertical;box-sizing:border-box;outline:none"></textarea>
-    </div>
-
-    <!-- Weight -->
-    <div class="section-label">⚖️ Вага</div>
-    <div class="card">
-      <div class="form-grid">
-        <div class="field">
-          <label>Вага (кг)</label>
-          <input type="number" id="weight" placeholder="70.0" min="30" max="250" step="0.1" inputmode="decimal"/>
-        </div>
-      </div>
-    </div>
-
-    <button class="btn-save" id="btnSave" onclick="saveEntry()">
-      💾 Зберегти запис
+    <!-- Add entry button -->
+    <button class="fab" onclick="openEntryModal(null)">
+      ➕ Внести показники
     </button>
   </div>
 
@@ -1235,6 +1266,79 @@
   </div>
 </div>
 
+<!-- ══ ENTRY MODAL ══ -->
+<div class="modal-overlay" id="entryModal">
+  <div class="entry-modal-box">
+    <div class="entry-modal-header">
+      <div class="entry-modal-title" id="entryModalTitle">Новий запис</div>
+      <button class="entry-modal-close" onclick="closeEntryModal()">✕</button>
+    </div>
+    <div class="entry-modal-body">
+      <!-- Edit banner -->
+      <div class="edit-banner" id="editBanner">
+        <span class="edit-banner-label">✏️ Редагування запису</span>
+        <button class="btn-cancel" onclick="cancelEdit()">Скасувати</button>
+      </div>
+      <!-- Date -->
+      <div class="card" style="padding:12px;display:flex;gap:8px;align-items:center;margin-bottom:12px">
+        <input type="date" id="entryDate" onchange="onDateChange(this.value)" style="flex:1" />
+        <button class="btn-outline" onclick="goToday()" style="white-space:nowrap;padding:9px 12px;font-size:12px">📅 Сьогодні</button>
+      </div>
+      <!-- Period toggle -->
+      <div class="period-toggle">
+        <button class="toggle-btn active" id="btn-period-morning" onclick="setRollerPeriod('morning')">🌅 Ранок</button>
+        <button class="toggle-btn" id="btn-period-evening" onclick="setRollerPeriod('evening')">🌙 Вечір</button>
+      </div>
+      <!-- Hand toggle -->
+      <div class="hand-toggle">
+        <button class="toggle-btn active" id="btn-hand-l" onclick="setRollerHand('l')">Ліва рука</button>
+        <button class="toggle-btn" id="btn-hand-r" onclick="setRollerHand('r')">Права рука</button>
+      </div>
+      <!-- Roller hint -->
+      <div class="roller-hint" id="rollerHint">Ранок — ліва рука</div>
+      <!-- Rollers -->
+      <div class="rollers-row">
+        <div class="roller-col">
+          <div class="roller-col-label">Сист.</div>
+          <div class="roller-outer">
+            <div class="roller-track" id="roller-sys"></div>
+            <div class="roller-center-bar"></div>
+          </div>
+        </div>
+        <div class="roller-col">
+          <div class="roller-col-label">Діаст.</div>
+          <div class="roller-outer">
+            <div class="roller-track" id="roller-dia"></div>
+            <div class="roller-center-bar"></div>
+          </div>
+        </div>
+        <div class="roller-col">
+          <div class="roller-col-label">Пульс</div>
+          <div class="roller-outer">
+            <div class="roller-track" id="roller-pulse"></div>
+            <div class="roller-center-bar"></div>
+          </div>
+        </div>
+      </div>
+      <div class="roller-null-badge">— = не вимірювалось</div>
+      <!-- Weight -->
+      <div class="form-grid wide" style="margin-top:12px">
+        <div class="field">
+          <label>⚖️ Вага (кг)</label>
+          <input type="number" id="weight" step="0.1" min="30" max="300" placeholder="70.5" />
+        </div>
+      </div>
+      <!-- Notes -->
+      <div class="field" style="margin-top:10px">
+        <label>📝 Нотатки</label>
+        <textarea id="notes" rows="3" placeholder="Самопочуття, ліки, активність…" style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;width:100%;resize:vertical;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
+      <!-- Save button -->
+      <button class="btn-save" id="btnSave" onclick="saveEntry()">💾 Зберегти запис</button>
+    </div>
+  </div>
+</div>
+
 <!-- Loading overlay -->
 <div id="loadingOverlay">
   <div class="spinner"></div>
@@ -1362,12 +1466,13 @@ async function initApp() {
     initRollers();
 
     // Init page
-    document.getElementById('entryDate').value = todayStr();
     const days = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
     const now = new Date();
     document.getElementById('headerDate').textContent =
       `${days[now.getDay()]}, ${now.getDate()}.${String(now.getMonth()+1).padStart(2,'0')}`;
     renderTodaySummary();
+    renderYesterdaySummary();
+    renderWeekStrip();
 
     // Restore push settings from local
     const s = loadReminderSettings();
@@ -1546,9 +1651,9 @@ function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
-  const idx = ['add','history','stats','export'].indexOf(name);
+  const idx = ['home','history','stats','export'].indexOf(name);
   document.querySelectorAll('.tab')[idx].classList.add('active');
-  if (name === 'add') renderTodaySummary();
+  if (name === 'home') { renderTodaySummary(); renderYesterdaySummary(); renderWeekStrip(); }
   if (name === 'history') renderHistory();
   if (name === 'stats') renderCharts();
   if (name === 'export') { renderExportStats(); renderRemindersUI(); }
@@ -1815,21 +1920,19 @@ async function saveEntry() {
     return;
   }
   hideLoading();
-
-  resetRollerState();
-  document.getElementById('weight').value = '';
-  document.getElementById('notes').value = '';
-  editingDate = null;
-  setEditMode(false);
+  closeEntryModal();
 
   const summary = _buildSaveSummary(entry);
   if (prevDate !== null) {
     showToast('✏️ ' + summary);
-    showPage('history');
+    const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
+    if (activePage === 'history') renderHistory();
   } else {
     showToast('✅ ' + summary);
   }
   renderTodaySummary();
+  renderYesterdaySummary();
+  renderWeekStrip();
 }
 
 function _buildSaveSummary(entry) {
@@ -1899,7 +2002,10 @@ function onDateChange(date) {
   if (editingDate) return;
   const e = entries.find(x => String(x.date).slice(0,10) === date);
   if (e) {
+    editingDate = date;
     fillFormFromEntry(e);
+    setEditMode(true);
+    document.getElementById('entryModalTitle').textContent = 'Редагування';
     showToast('📋 Дані за цей день підтягнуто', 'var(--accent)');
   } else {
     resetRollerState();
@@ -1909,27 +2015,43 @@ function onDateChange(date) {
 }
 
 async function editEntry(date) {
-  // Fetch latest from server so form is pre-filled with up-to-date data
   await fetchEntries();
-  const e = entries.find(x => String(x.date).slice(0,10) === date);
-  if (!e) return;
-  editingDate = date;
-
-  document.getElementById('entryDate').value = String(e.date).slice(0,10);
-  fillFormFromEntry(e);
-
-  setEditMode(true);
-  showPage('add');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  openEntryModal(date);
 }
 
 function cancelEdit() {
+  closeEntryModal();
+}
+
+function openEntryModal(date) {
+  resetRollerState();
+  document.getElementById('weight').value = '';
+  document.getElementById('notes').value = '';
+  editingDate = null;
+  setEditMode(false);
+
+  const d = date || todayStr();
+  document.getElementById('entryDate').value = d;
+  document.getElementById('entryModalTitle').textContent = 'Новий запис';
+
+  const e = entries.find(x => String(x.date).slice(0,10) === d);
+  if (e) {
+    editingDate = d;
+    fillFormFromEntry(e);
+    setEditMode(true);
+    document.getElementById('entryModalTitle').textContent = 'Редагування';
+  }
+
+  document.getElementById('entryModal').classList.add('open');
+}
+
+function closeEntryModal() {
   editingDate = null;
   setEditMode(false);
   resetRollerState();
   document.getElementById('weight').value = '';
-  document.getElementById('notes').value  = '';
-  document.getElementById('entryDate').value = todayStr();
+  document.getElementById('notes').value = '';
+  document.getElementById('entryModal').classList.remove('open');
 }
 
 function setEditMode(on) {
@@ -2026,6 +2148,85 @@ function renderTodaySummary() {
       <div class="summary-label">⚖️ Вага</div>
     </div>` : ''}
   `;
+}
+
+function renderYesterdaySummary() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const yesterdayStr = d.toISOString().slice(0, 10);
+  const e = entries.find(x => String(x.date).slice(0,10) === yesterdayStr);
+  const grid = document.getElementById('yesterdaySummaryGrid');
+  if (!grid) return;
+
+  if (!e) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:16px;color:var(--text-secondary);font-size:14px">Вчора даних немає</div>`;
+    return;
+  }
+
+  const m = e.morning, ev = e.evening;
+  grid.innerHTML = `
+    <div class="summary-col">
+      <div class="summary-col-header" style="color:var(--morning)">🌅 Ранок</div>
+      <div class="summary-item">
+        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}${bpBadge(m.sys_l, m.dia_l)}</div>
+        <div class="summary-label">ліва рука</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}${bpBadge(m.sys_r, m.dia_r)}</div>
+        <div class="summary-label">права рука</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value val-pulse">${m.pulse ?? '—'}</div>
+        <div class="summary-label">💚 Пульс</div>
+      </div>
+    </div>
+    <div class="summary-col">
+      <div class="summary-col-header" style="color:var(--evening)">🌙 Вечір</div>
+      <div class="summary-item">
+        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}${bpBadge(ev.sys_l, ev.dia_l)}</div>
+        <div class="summary-label">ліва рука</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}${bpBadge(ev.sys_r, ev.dia_r)}</div>
+        <div class="summary-label">права рука</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-value val-pulse">${ev.pulse ?? '—'}</div>
+        <div class="summary-label">💚 Пульс</div>
+      </div>
+    </div>
+    ${e.weight ? `<div class="summary-item" style="grid-column:1/-1">
+      <div class="summary-value val-weight">${e.weight} кг</div>
+      <div class="summary-label">⚖️ Вага</div>
+    </div>` : ''}
+  `;
+}
+
+function renderWeekStrip() {
+  const strip = document.getElementById('weekStrip');
+  if (!strip) return;
+  const dayNames = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const today = todayStr();
+  let html = '';
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const entry = entries.find(x => String(x.date).slice(0,10) === dateStr);
+    let dotClass = '';
+    if (entry) {
+      const hasMorning = entry.morning.sys_l != null || entry.morning.sys_r != null;
+      const hasEvening = entry.evening.sys_l != null || entry.evening.sys_r != null;
+      dotClass = (hasMorning && hasEvening) ? 'full' : 'partial';
+    }
+    const todayCls = dateStr === today ? ' today' : '';
+    html += `<div class="week-day${todayCls}" onclick="openEntryModal('${dateStr}')">
+      <span class="week-day-name">${dayNames[d.getDay()]}</span>
+      <span class="week-day-num">${d.getDate()}</span>
+      <span class="week-day-dot ${dotClass}"></span>
+    </div>`;
+  }
+  strip.innerHTML = html;
 }
 
 // ── HISTORY ─────────────────────────────────────────────────────────────────
@@ -2394,6 +2595,10 @@ document.getElementById('profileModal').addEventListener('click', function(e) {
   if (e.target === this) closeProfileModal();
 });
 
+document.getElementById('entryModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEntryModal();
+});
+
 // ── REMINDERS ────────────────────────────────────────────────────────────────
 function loadReminderSettings() {
   try { return JSON.parse(localStorage.getItem(REMINDER_KEY)) || {}; }
@@ -2582,6 +2787,8 @@ document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && currentUser) {
     await fetchEntries();
     renderTodaySummary();
+    renderYesterdaySummary();
+    renderWeekStrip();
     const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
     if (activePage === 'history') renderHistory();
     if (activePage === 'stats') renderCharts();
@@ -2590,7 +2797,7 @@ document.addEventListener('visibilitychange', async () => {
 
 // ── SWIPE NAVIGATION ─────────────────────────────────────────────────────────
 (function () {
-  const PAGES = ['add', 'history', 'stats', 'export'];
+  const PAGES = ['home', 'history', 'stats', 'export'];
   let startX = 0, startY = 0;
 
   document.addEventListener('touchstart', e => {
