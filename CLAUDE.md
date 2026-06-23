@@ -47,6 +47,7 @@
 - [x] User profile (name, date of birth, height)
 - [x] **WHO/ESH 2018 BP classification** (8 categories: Optimal→Grade 3 + Isolated Systolic/Diastolic)
 - [x] **BMI calculation** (`calcBmi`/`bmiCategory`): shown in summary card + profile modal preview; stored as `height_cm` in users table
+- [x] **GDPR compliance**: consent at registration (`consented_at`), Privacy Policy modal, delete account (`DELETE /api/users/me`)
 - [x] XSS-safe rendering (`escHtml`)
 - [x] File-based error logging (`logs/app.log`)
 

@@ -165,6 +165,32 @@
     }
     .btn-auth:active { opacity: .8; }
     .btn-auth:disabled { opacity: .5; cursor: default; }
+    .gdpr-consent {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 8px 0 12px;
+      line-height: 1.45;
+      cursor: pointer;
+    }
+    .gdpr-consent input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); }
+    .gdpr-consent a { color: var(--accent); text-decoration: none; }
+    .gdpr-consent a:hover { text-decoration: underline; }
+    .btn-danger {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ef4444;
+      background: transparent;
+      color: #ef4444;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background .15s;
+    }
+    .btn-danger:active { background: rgba(239,68,68,.12); }
     .auth-error {
       margin-top: 12px;
       padding: 10px 12px;
@@ -1143,6 +1169,10 @@
       <input class="auth-input" type="email" id="regEmail" placeholder="Email" autocomplete="email" />
       <input class="auth-input" type="password" id="regPassword" placeholder="Пароль (мін. 8 символів)" autocomplete="new-password"
         onkeydown="if(event.key==='Enter')submitRegister()" />
+      <label class="gdpr-consent">
+        <input type="checkbox" id="regConsent" />
+        <span>Я погоджуюсь з <a href="#" onclick="openPrivacyModal();return false">Політикою конфіденційності</a> та обробкою моїх персональних медичних даних відповідно до GDPR (ст. 9(2)(a))</span>
+      </label>
       <button class="btn-auth" id="btnRegister" onclick="submitRegister()">Зареєструватись</button>
     </div>
 
@@ -1398,6 +1428,51 @@
       <button class="btn-outline" style="flex:1" onclick="closeProfileModal()">Скасувати</button>
       <button class="btn-save" style="flex:2;margin-top:0" onclick="saveProfile()">Зберегти</button>
     </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0 14px" />
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+      Зона небезпеки · <a href="#" onclick="openPrivacyModal();return false" style="color:var(--accent);text-decoration:none">Політика конфіденційності</a>
+    </div>
+    <button class="btn-danger" onclick="confirmDeleteAccount()">🗑 Видалити акаунт і всі дані</button>
+  </div>
+</div>
+
+<!-- ══ PRIVACY POLICY MODAL ══ -->
+<div class="modal-overlay" id="privacyModal">
+  <div class="modal-box" style="max-width:480px;width:95%;max-height:88dvh;overflow-y:auto">
+    <div class="modal-title">🔒 Політика конфіденційності</div>
+    <div style="font-size:13px;line-height:1.6;color:var(--text)">
+
+      <p style="margin:0 0 10px"><strong>Хто обробляє дані</strong><br>
+      Цей застосунок є особистим інструментом відстеження здоров'я. Власник сервера є єдиним контролером ваших даних.</p>
+
+      <p style="margin:0 0 10px"><strong>Які дані збираються</strong><br>
+      Email, ім'я, дата народження, зріст, показники артеріального тиску, пульс, вага, нотатки до записів.</p>
+
+      <p style="margin:0 0 10px"><strong>Мета обробки</strong><br>
+      Виключно для відображення вашої особистої медичної статистики. Дані не передаються третім особам.</p>
+
+      <p style="margin:0 0 10px"><strong>Правова підстава (GDPR ст. 9(2)(a))</strong><br>
+      Обробка спеціальної категорії персональних даних (здоров'я) здійснюється на підставі вашої явної згоди, наданої при реєстрації.</p>
+
+      <p style="margin:0 0 10px"><strong>Зберігання</strong><br>
+      Дані зберігаються на приватному сервері. Шифрування транспорту — HTTPS. Дані зберігаються до видалення акаунту.</p>
+
+      <p style="margin:0 0 10px"><strong>Ваші права (GDPR)</strong></p>
+      <ul style="margin:0 0 10px;padding-left:18px">
+        <li><strong>Доступ</strong> — ви бачите всі свої дані в застосунку</li>
+        <li><strong>Портативність</strong> — експорт у JSON / CSV (Журнал → Експорт)</li>
+        <li><strong>Видалення</strong> — кнопка "Видалити акаунт" у профілі видаляє всі записи безповоротно</li>
+        <li><strong>Відкликання згоди</strong> — видалення акаунту відкликає згоду</li>
+      </ul>
+
+      <p style="margin:0;color:var(--muted);font-size:11px">
+        Питання щодо обробки даних направляйте власнику сервера.
+      </p>
+    </div>
+    <div class="modal-actions" style="margin-top:20px">
+      <button class="btn-save" style="flex:1;margin-top:0" onclick="closePrivacyModal()">Зрозуміло</button>
+    </div>
   </div>
 </div>
 
@@ -1635,12 +1710,14 @@ async function submitRegister() {
   const name     = document.getElementById('regName').value.trim();
   const email    = document.getElementById('regEmail').value.trim();
   const password = document.getElementById('regPassword').value;
+  const consent  = document.getElementById('regConsent').checked;
   const btn      = document.getElementById('btnRegister');
   document.getElementById('authError').style.display = 'none';
 
-  if (!name)             { _showAuthError("Введіть ім'я"); return; }
-  if (!email)            { _showAuthError('Введіть email'); return; }
+  if (!name)               { _showAuthError("Введіть ім'я"); return; }
+  if (!email)              { _showAuthError('Введіть email'); return; }
   if (password.length < 8) { _showAuthError('Пароль має містити мінімум 8 символів'); return; }
+  if (!consent)            { _showAuthError('Необхідно погодитись з Політикою конфіденційності'); return; }
 
   btn.disabled = true;
   btn.textContent = '…';
@@ -1648,7 +1725,7 @@ async function submitRegister() {
     const r = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, consented: true }),
     });
     const data = await r.json();
     if (!r.ok) { _showAuthError(data.error || 'Помилка реєстрації'); return; }
@@ -1658,6 +1735,26 @@ async function submitRegister() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Зареєструватись';
+  }
+}
+
+function openPrivacyModal()  { document.getElementById('privacyModal').classList.add('open'); }
+function closePrivacyModal() { document.getElementById('privacyModal').classList.remove('open'); }
+
+async function confirmDeleteAccount() {
+  const confirmed = confirm(
+    'Видалити акаунт?\n\nУсі ваші дані (записи, налаштування) будуть видалені безповоротно.'
+  );
+  if (!confirmed) return;
+  showLoading('Видалення акаунту…');
+  try {
+    const r = await fetch('/api/users/me', { method: 'DELETE' });
+    hideLoading();
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Помилка');
+    window.location.href = '/';
+  } catch (err) {
+    hideLoading();
+    showToast('⚠️ ' + err.message, 'var(--warn)');
   }
 }
 
