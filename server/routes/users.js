@@ -121,6 +121,22 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// DELETE /api/users/me — delete own account (GDPR right to erasure)
+router.delete('/me', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /api/users/me error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // DELETE /api/users/:id — admin only: delete user (not self)
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {

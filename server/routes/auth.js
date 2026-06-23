@@ -90,7 +90,7 @@ router.get('/google/callback',
 
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body ?? {};
+    const { name, email, password, consented } = req.body ?? {};
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({ error: "Введіть ім'я" });
@@ -101,6 +101,9 @@ router.post('/register', async (req, res) => {
     if (!password || password.length < 8) {
       return res.status(400).json({ error: 'Пароль має містити мінімум 8 символів' });
     }
+    if (!consented) {
+      return res.status(400).json({ error: 'Необхідна згода на обробку персональних даних' });
+    }
 
     const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (exists.rows.length) {
@@ -110,8 +113,8 @@ router.post('/register', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
-      `INSERT INTO users (email, name, password_hash, subscription_tier, is_admin)
-       VALUES ($1, $2, $3, 'premium', FALSE)
+      `INSERT INTO users (email, name, password_hash, subscription_tier, is_admin, consented_at)
+       VALUES ($1, $2, $3, 'premium', FALSE, NOW())
        RETURNING *`,
       [email.toLowerCase(), name.trim(), hash]
     );

@@ -59,6 +59,8 @@ async function initDb() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
   // Add height for BMI calculation
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS height_cm SMALLINT`);
+  // GDPR: explicit consent timestamp
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS consented_at TIMESTAMPTZ`);
   // Migrate legacy 'free' tier to 'premium'
   await pool.query(`UPDATE users SET subscription_tier = 'premium' WHERE subscription_tier = 'free' OR subscription_tier IS NULL`);
 
