@@ -1425,6 +1425,22 @@
     <div class="card" id="exportStats"></div>
   </div>
 
+  <!-- ══ ADMIN PAGE ══ -->
+  <div class="page" id="page-admin">
+    <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+      <span>⚙️ Користувачі</span>
+      <span id="adminUserCount" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div style="margin-bottom:12px">
+      <input id="adminSearchInput" type="search" placeholder="🔍 Пошук за email або ім'ям…"
+        oninput="renderAdminUsers()"
+        style="width:100%;box-sizing:border-box;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;outline:none"/>
+    </div>
+    <div id="adminUsersList">
+      <div style="text-align:center;padding:40px;color:var(--muted)">Завантаження…</div>
+    </div>
+  </div>
+
 </main>
 
 </div><!-- /#appShell -->
@@ -1447,22 +1463,6 @@
       <button class="btn-outline" style="flex:1" onclick="closePdfModal()">Скасувати</button>
       <button class="btn-save" style="flex:2;margin-top:0" onclick="exportPDF()">Сформувати PDF</button>
     </div>
-  </div>
-</div>
-
-<!-- ══ ADMIN PAGE ══ -->
-<div class="page" id="page-admin">
-  <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
-    <span>⚙️ Користувачі</span>
-    <span id="adminUserCount" style="font-size:12px;color:var(--muted)"></span>
-  </div>
-  <div style="margin-bottom:12px">
-    <input id="adminSearchInput" type="search" placeholder="🔍 Пошук за email або ім'ям…"
-      oninput="renderAdminUsers()"
-      style="width:100%;box-sizing:border-box;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;outline:none"/>
-  </div>
-  <div id="adminUsersList">
-    <div style="text-align:center;padding:40px;color:var(--muted)">Завантаження…</div>
   </div>
 </div>
 
