@@ -134,18 +134,19 @@ router.post('/logout', (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    res.json({
-      id: payload.id,
-      email: payload.email,
-      name: payload.name,
-      is_admin: payload.is_admin,
-    });
+    const result = await pool.query(
+      `SELECT id, email, name, avatar_url, is_admin, date_of_birth, created_at
+       FROM users WHERE id = $1`,
+      [payload.id]
+    );
+    if (!result.rows.length) return res.status(401).json({ error: 'User not found' });
+    res.json(result.rows[0]);
   } catch {
     res.status(401).json({ error: 'Invalid token' });
   }
