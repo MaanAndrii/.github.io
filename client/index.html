@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#1a2744" />
+  <meta name="theme-color" content="#e85249" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Здоров'я" />
-  <title>Моніторинг здоров'я</title>
+  <meta name="apple-mobile-web-app-title" content="BP &amp; BMI" />
+  <title>BP &amp; BMI — Моніторинг здоров'я</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,7 +20,8 @@
       --surface:        #1a2744;
       --card:           #1f3060;
       --border:         #2a3f6f;
-      --accent:         #4f8ef7;
+      --accent:         #e85249;
+      --brand-navy:     #1c2e4a;
       --accent2:        #34d399;
       --accent3:        #f472b6;
       --warn:           #fb923c;
@@ -232,22 +233,16 @@
       justify-content: space-between;
     }
     .app-title {
-      font-size: 17px;
-      font-weight: 600;
-      letter-spacing: -0.3px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 9px;
     }
-    .app-title .pulse-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--accent2);
-      animation: pulse-dot 2s ease-in-out infinite;
-    }
-    @keyframes pulse-dot {
-      0%,100% { opacity:1; transform:scale(1); }
-      50% { opacity:.5; transform:scale(.8); }
+    .app-logo-icon { width: 30px; height: 30px; flex-shrink: 0; }
+    .app-title-text {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      line-height: 1;
     }
     .today-badge {
       font-size: 12px;
@@ -1134,8 +1129,26 @@
 <!-- ══ LOGIN SCREEN ══ -->
 <div id="loginScreen">
   <div class="login-card" style="max-width:380px">
-    <div style="font-size:48px;margin-bottom:12px">❤️</div>
-    <h1>Моніторинг здоров'я</h1>
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:18px">
+      <svg width="64" height="62" viewBox="0 0 100 96" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="hg-login" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ef7065"/>
+            <stop offset="100%" stop-color="#e83030"/>
+          </linearGradient>
+        </defs>
+        <path d="M93,17 A50,50 0 1,1 7,17" stroke="rgba(255,255,255,0.75)" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+        <line x1="93" y1="67" x2="87" y2="64" stroke="rgba(255,255,255,0.75)" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="50" y1="92" x2="50" y2="85" stroke="rgba(255,255,255,0.75)" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="7"  y1="67" x2="13" y2="64" stroke="rgba(255,255,255,0.75)" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M50,78 C25,62 5,49 5,32 C5,14 20,8 32,12 C40,15 47,23 50,32 C53,23 60,15 68,12 C80,8 95,14 95,32 C95,49 75,62 50,78Z" fill="url(#hg-login)"/>
+        <polyline points="15,46 22,46 26,40 30,46 33,49 37,28 41,54 44,46 50,38 55,46 62,46 83,46" stroke="white" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div style="text-align:left">
+        <div style="font-size:26px;font-weight:800;letter-spacing:-0.5px;line-height:1.1">BP &amp; BMI</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px">Моніторинг здоров'я</div>
+      </div>
+    </div>
     <p style="margin-bottom:20px">Увійдіть, щоб розпочати</p>
 
     <a href="/api/auth/google" class="btn-google">
@@ -1185,8 +1198,21 @@
 
 <header>
   <div class="app-title">
-    <span class="pulse-dot"></span>
-    Моніторинг здоров'я
+    <svg class="app-logo-icon" viewBox="0 0 100 96" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="hg-hdr" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ef7065"/>
+          <stop offset="100%" stop-color="#e83030"/>
+        </linearGradient>
+      </defs>
+      <path d="M93,17 A50,50 0 1,1 7,17" stroke="rgba(255,255,255,0.8)" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <line x1="93" y1="67" x2="87" y2="64" stroke="rgba(255,255,255,0.8)" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="50" y1="92" x2="50" y2="85" stroke="rgba(255,255,255,0.8)" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="7"  y1="67" x2="13" y2="64" stroke="rgba(255,255,255,0.8)" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M50,78 C25,62 5,49 5,32 C5,14 20,8 32,12 C40,15 47,23 50,32 C53,23 60,15 68,12 C80,8 95,14 95,32 C95,49 75,62 50,78Z" fill="url(#hg-hdr)"/>
+      <polyline points="15,46 22,46 26,40 30,46 33,49 37,28 41,54 44,46 50,38 55,46 62,46 83,46" stroke="white" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="app-title-text">BP &amp; BMI</span>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <span class="today-badge" id="headerDate"></span>
