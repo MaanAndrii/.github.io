@@ -101,6 +101,17 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"
 function buildHtml(user, entries, dateFrom, dateTo) {
   const today = fmtDateUk(new Date().toISOString().slice(0, 10));
   const dob = user.date_of_birth ? fmtDateUk(user.date_of_birth) : '—';
+  let age = '—';
+  if (user.date_of_birth) {
+    const birth = new Date(user.date_of_birth);
+    const now = new Date();
+    let years = now.getUTCFullYear() - birth.getUTCFullYear();
+    const notYetBirthday =
+      now.getUTCMonth() < birth.getUTCMonth() ||
+      (now.getUTCMonth() === birth.getUTCMonth() && now.getUTCDate() < birth.getUTCDate());
+    if (notYetBirthday) years--;
+    age = years >= 0 ? String(years) + ' р.' : '—';
+  }
 
   const filtered = entries.filter(e => {
     const d = String(e.date).slice(0, 10);
@@ -391,7 +402,7 @@ function buildHtml(user, entries, dateFrom, dateTo) {
 
   <table class="meta-table">
     <tr><td>Пацієнт:</td><td>${escHtml(user.name)}</td></tr>
-    <tr><td>Дата народження:</td><td>${dob}</td></tr>
+    <tr><td>Дата народження:</td><td>${dob}${age !== '—' ? ' &nbsp;(' + age + ')' : ''}</td></tr>
     <tr><td>Період:</td><td>${fmtDateUk(dateFrom)} — ${fmtDateUk(dateTo)}</td></tr>
     <tr><td>Сформовано:</td><td>${today}</td></tr>
     <tr><td>Всього записів:</td><td>${filtered.length}</td></tr>
