@@ -2092,7 +2092,15 @@ async function initApp() {
       setTimeout(() => openDriveModal(), 300);
     } else if (urlParams.get('error')?.startsWith('drive_')) {
       history.replaceState({}, '', window.location.pathname);
-      showToast('❌ Помилка підключення Drive: ' + urlParams.get('error'), 'var(--warn)');
+      const msgs = {
+        drive_no_callback_url: 'GOOGLE_DRIVE_CALLBACK_URL не додано в .env',
+        drive_no_client_id:    'GOOGLE_CLIENT_ID не налаштовано в .env',
+        drive_denied:          'Доступ відхилено',
+        drive_token_failed:    'Не вдалось отримати токен',
+        drive_callback_failed: 'Помилка callback',
+      };
+      const code = urlParams.get('error');
+      showToast('❌ Drive: ' + (msgs[code] || code), 'var(--warn)');
     }
   } catch (err) {
     console.error('initApp error:', err);

@@ -91,9 +91,8 @@ router.get('/google/callback',
 // ── Google Drive OAuth ────────────────────────────────────────────────────────
 
 router.get('/google/drive', requireAuth, (req, res) => {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_DRIVE_CALLBACK_URL) {
-    return res.redirect('/?error=google_drive_not_configured');
-  }
+  if (!process.env.GOOGLE_CLIENT_ID) return res.redirect('/?error=drive_no_client_id');
+  if (!process.env.GOOGLE_DRIVE_CALLBACK_URL) return res.redirect('/?error=drive_no_callback_url');
   res.redirect(driveAuthUrl(req.user.id));
 });
 
