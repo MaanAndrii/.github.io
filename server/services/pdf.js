@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+const path = require('path');
 
 function escHtml(s) {
   if (s == null) return '—';
@@ -92,11 +94,12 @@ function bpCategoryLabel(sys, dia) {
   return 'Оптимальний';
 }
 
-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-  <rect width="44" height="44" rx="10" fill="#1a2744"/>
-  <path d="M22 36 C22 36 7 23 7 14 A9 9 0 0 1 22 11 A9 9 0 0 1 37 14 C37 23 22 36 22 36Z" fill="#e85249"/>
-  <text x="22" y="19" text-anchor="middle" font-family="Arial" font-size="6.5" font-weight="bold" fill="white">BP</text>
-</svg>`;
+const _iconPath = path.join(__dirname, '..', '..', 'client', 'icons', 'icon-192.svg');
+const _iconSvgRaw = fs.readFileSync(_iconPath, 'utf8');
+// Strip XML declaration if present, set explicit size
+const LOGO_SVG = _iconSvgRaw
+  .replace(/<\?xml[^?]*\?>/, '')
+  .replace(/<svg /, '<svg width="56" height="56" ');
 
 function buildHtml(user, entries, dateFrom, dateTo) {
   const today = fmtDateUk(new Date().toISOString().slice(0, 10));
