@@ -648,8 +648,45 @@
     .history-body {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 6px;
+      gap: 8px;
     }
+    /* column block (morning / evening) */
+    .history-col {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .history-col-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      padding: 0 4px;
+      margin-bottom: 1px;
+    }
+    /* individual metric row inside a column */
+    .hcol-row {
+      background: var(--surface);
+      border-radius: 6px;
+      padding: 5px 8px;
+    }
+    .hcol-row-label {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 1px;
+    }
+    .hcol-row-val {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+    /* full-width row (weight, notes) — explicit class needed */
     .history-row {
       display: flex;
       justify-content: space-between;
@@ -1855,7 +1892,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '1.05';
+const APP_VERSION   = '1.06';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -2545,6 +2582,8 @@ let rollerFormData = {
   evening: { sys_l: null, dia_l: null, pulse_l: null, sys_r: null, dia_r: null, pulse_r: null },
 };
 
+const _rollerKey = () => rollerPeriod + '-' + rollerHand;
+
 // ty = ITEM_H * (1 - idx) centers item[idx] in the 156px outer (3 × ITEM_H)
 function _applyRollerTransform(track, animate) {
   track.style.transition = animate ? 'transform 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none';
@@ -2552,8 +2591,11 @@ function _applyRollerTransform(track, animate) {
 }
 
 function _attachPointerEvents(track, cfg) {
-  const outer = track.parentElement;
-  let startY = 0, startTy = 0, dragging = false;
+  const outer    = track.parentElement;
+  const count    = track.querySelectorAll('.roller-item').length;
+  const maxTy    = ITEM_H;
+  const minTy    = ITEM_H * (1 - (count - 1));
+  let startY = 0, startTy = 0, dragging = false, prevIdx = -1;
 
   outer.addEventListener('pointerdown', e => {
     e.preventDefault();
@@ -2561,24 +2603,23 @@ function _attachPointerEvents(track, cfg) {
     dragging = true;
     startY  = e.clientY;
     startTy = ITEM_H * (1 - track._idx);
-    track.style.transition = 'none';
+    _applyRollerTransform(track, false);
   });
 
   outer.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const items  = track.querySelectorAll('.roller-item');
-    const maxTy  = ITEM_H;
-    const minTy  = ITEM_H * (1 - (items.length - 1));
-    const ty     = Math.max(minTy, Math.min(maxTy, startTy + (e.clientY - startY)));
-    track._idx   = Math.max(0, Math.min(items.length - 1, Math.round((ITEM_H - ty) / ITEM_H)));
+    const ty   = Math.max(minTy, Math.min(maxTy, startTy + (e.clientY - startY)));
+    const idx  = Math.max(0, Math.min(count - 1, Math.round((ITEM_H - ty) / ITEM_H)));
+    track._idx = idx;
     track.style.transform = `translateY(${ty}px)`;
-    _updateRollerVisuals(cfg.id);
+    if (idx !== prevIdx) { _updateRollerVisuals(cfg.id); prevIdx = idx; }
   });
 
   function endDrag() {
     if (!dragging) return;
     dragging = false;
-    rollerTouched.add(rollerPeriod + '-' + rollerHand);
+    prevIdx  = -1;
+    rollerTouched.add(_rollerKey());
     _applyRollerTransform(track, true);
     _updateRollerVisuals(cfg.id);
     _saveRollerToFormData();
@@ -2605,10 +2646,8 @@ function initRollers() {
       el.textContent = val;
       track.appendChild(el);
     }
-    track._idx = 0;
-    _applyRollerTransform(track, false);
-    _attachPointerEvents(track, cfg);
     _setRollerValue(cfg.id, null);
+    _attachPointerEvents(track, cfg);
   });
   updateRollerHint();
   updateToggleStatus();
@@ -2655,7 +2694,7 @@ function _getRollerValue(id) {
 }
 
 function _saveRollerToFormData() {
-  const key = rollerPeriod + '-' + rollerHand;
+  const key = _rollerKey();
   if (!rollerTouched.has(key)) return;
   const h = rollerHand, p = rollerPeriod;
   rollerFormData[p]['sys_'   + h] = _getRollerValue('sys');
@@ -3066,6 +3105,23 @@ function bpBadge(sys, dia) {
   if (!cat) return '';
   return `<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}66">${cat.label}</span>`;
 }
+// Compact badge for narrow journal-card columns
+const _BP_SHORT = {
+  'Оптимальний':       'Опт',
+  'Нормальний':        'Норм',
+  'Висок. нормальний': 'В·н',
+  'Гіпертензія 1 ст.': 'Г·1',
+  'Гіпертензія 2 ст.': 'Г·2',
+  'Гіпертензія 3 ст.': 'Г·3',
+  'Ізол. сист. АГ':    'ІС·АГ',
+  'Ізол. діаст. АГ':   'ІД·АГ',
+};
+function bpBadgeCompact(sys, dia) {
+  const cat = bpCategory(sys, dia);
+  if (!cat) return '';
+  const label = _BP_SHORT[cat.label] ?? cat.label;
+  return `<span style="padding:1px 5px;border-radius:8px;font-size:10px;font-weight:700;background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}55;font-family:var(--font)">${label}</span>`;
+}
 function bpBadgeRow(sys, dia) {
   const cat = bpCategory(sys, dia);
   const inner = cat
@@ -3332,6 +3388,30 @@ function filterEntries(days) {
   return entries.filter(e => String(e.date).slice(0,10) >= cutStr);
 }
 
+function _hcolBpRow(label, sys, dia, color) {
+  const val = sys != null || dia != null ? `${sys ?? '—'}/${dia ?? '—'}` : '—';
+  const badge = (sys != null || dia != null) ? bpBadgeCompact(sys, dia) : '';
+  return `<div class="hcol-row">
+    <div class="hcol-row-label">${label}</div>
+    <div class="hcol-row-val" style="color:${color}">${val}${badge}</div>
+  </div>`;
+}
+function _hcolPulseRow(val) {
+  return `<div class="hcol-row">
+    <div class="hcol-row-label">Пульс</div>
+    <div class="hcol-row-val" style="color:var(--accent2)">${val ?? '—'}</div>
+  </div>`;
+}
+function _hcolArmDiff(sys_l, sys_r) {
+  if (sys_l == null || sys_r == null) return '';
+  const diff = Math.abs(sys_l - sys_r);
+  if (diff <= 10) return '';
+  return `<div class="hcol-row" style="background:rgba(249,115,22,.1)">
+    <div class="hcol-row-label" style="color:#f97316">↔ Δ рук</div>
+    <div class="hcol-row-val" style="color:#f97316">⚠️ ${diff} мм</div>
+  </div>`;
+}
+
 function renderHistory() {
   const list = document.getElementById('historyList');
   const data = filterEntries(historyFilter);
@@ -3342,38 +3422,25 @@ function renderHistory() {
   list.innerHTML = data.map(e => {
     const m = e.morning, ev = e.evening;
     const dateStr = String(e.date).slice(0,10);
-    function bp(sys, dia) { return (sys ?? '—') + '/' + (dia ?? '—'); }
     return `<div class="history-item" onclick="openDayModal('${dateStr}')">
       <div class="history-header">
         <span class="history-date">${fmtDate(dateStr)}</span>
         <span style="font-size:11px;color:var(--muted)">▶</span>
       </div>
       <div class="history-body">
-        <div class="history-row">
-          <span class="history-row-label">🌅 Ранок Л</span>
-          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_l, m.dia_l)}${bpBadge(m.sys_l, m.dia_l)}</span>
+        <div class="history-col">
+          <div class="history-col-title" style="color:var(--morning)">🌅 Ранок</div>
+          ${_hcolBpRow('Ліва рука', m.sys_l, m.dia_l, 'var(--morning)')}
+          ${_hcolBpRow('Права рука', m.sys_r, m.dia_r, 'var(--morning)')}
+          ${_hcolPulseRow(m.pulse)}
+          ${_hcolArmDiff(m.sys_l, m.sys_r)}
         </div>
-        <div class="history-row">
-          <span class="history-row-label">🌅 Ранок П</span>
-          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_r, m.dia_r)}${bpBadge(m.sys_r, m.dia_r)}</span>
-        </div>
-        ${armDiffWarning(m.sys_l, m.sys_r)}
-        <div class="history-row">
-          <span class="history-row-label">🌙 Вечір Л</span>
-          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_l, ev.dia_l)}${bpBadge(ev.sys_l, ev.dia_l)}</span>
-        </div>
-        <div class="history-row">
-          <span class="history-row-label">🌙 Вечір П</span>
-          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_r, ev.dia_r)}${bpBadge(ev.sys_r, ev.dia_r)}</span>
-        </div>
-        ${armDiffWarning(ev.sys_l, ev.sys_r)}
-        <div class="history-row">
-          <span class="history-row-label">💚 Пульс р.</span>
-          <span class="history-row-val" style="color:var(--accent2)">${m.pulse ?? '—'}</span>
-        </div>
-        <div class="history-row">
-          <span class="history-row-label">💚 Пульс в.</span>
-          <span class="history-row-val" style="color:var(--accent2)">${ev.pulse ?? '—'}</span>
+        <div class="history-col">
+          <div class="history-col-title" style="color:var(--evening)">🌙 Вечір</div>
+          ${_hcolBpRow('Ліва рука', ev.sys_l, ev.dia_l, 'var(--evening)')}
+          ${_hcolBpRow('Права рука', ev.sys_r, ev.dia_r, 'var(--evening)')}
+          ${_hcolPulseRow(ev.pulse)}
+          ${_hcolArmDiff(ev.sys_l, ev.sys_r)}
         </div>
         ${e.weight ? `<div class="history-row" style="grid-column:1/-1">
           <span class="history-row-label">⚖️ Вага</span>

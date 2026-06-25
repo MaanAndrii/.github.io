@@ -1,5 +1,13 @@
 # Blood Health Monitor — Project Context
 
+## Versioning rule
+
+**При кожній зміні коду** збільшувати версію програми на +0.01:
+- `client/index.html` → `const APP_VERSION = 'X.XX'`
+- `client/sw.js` → `const CACHE = 'health-vN'` і `const API_CACHE = 'health-api-vN'` (N — ціле, збільшувати на 1)
+
+Поточна версія: **1.06** (SW: health-v6).
+
 ## Stack
 
 - **Backend**: Node.js 20 + Express, PostgreSQL (`pg`), bcryptjs, JWT (httpOnly cookie, 30d)
