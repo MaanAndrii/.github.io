@@ -2545,6 +2545,8 @@ let rollerFormData = {
   evening: { sys_l: null, dia_l: null, pulse_l: null, sys_r: null, dia_r: null, pulse_r: null },
 };
 
+const _rollerKey = () => rollerPeriod + '-' + rollerHand;
+
 // ty = ITEM_H * (1 - idx) centers item[idx] in the 156px outer (3 × ITEM_H)
 function _applyRollerTransform(track, animate) {
   track.style.transition = animate ? 'transform 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none';
@@ -2552,8 +2554,11 @@ function _applyRollerTransform(track, animate) {
 }
 
 function _attachPointerEvents(track, cfg) {
-  const outer = track.parentElement;
-  let startY = 0, startTy = 0, dragging = false;
+  const outer    = track.parentElement;
+  const count    = track.querySelectorAll('.roller-item').length;
+  const maxTy    = ITEM_H;
+  const minTy    = ITEM_H * (1 - (count - 1));
+  let startY = 0, startTy = 0, dragging = false, prevIdx = -1;
 
   outer.addEventListener('pointerdown', e => {
     e.preventDefault();
@@ -2561,24 +2566,23 @@ function _attachPointerEvents(track, cfg) {
     dragging = true;
     startY  = e.clientY;
     startTy = ITEM_H * (1 - track._idx);
-    track.style.transition = 'none';
+    _applyRollerTransform(track, false);
   });
 
   outer.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const items  = track.querySelectorAll('.roller-item');
-    const maxTy  = ITEM_H;
-    const minTy  = ITEM_H * (1 - (items.length - 1));
-    const ty     = Math.max(minTy, Math.min(maxTy, startTy + (e.clientY - startY)));
-    track._idx   = Math.max(0, Math.min(items.length - 1, Math.round((ITEM_H - ty) / ITEM_H)));
+    const ty   = Math.max(minTy, Math.min(maxTy, startTy + (e.clientY - startY)));
+    const idx  = Math.max(0, Math.min(count - 1, Math.round((ITEM_H - ty) / ITEM_H)));
+    track._idx = idx;
     track.style.transform = `translateY(${ty}px)`;
-    _updateRollerVisuals(cfg.id);
+    if (idx !== prevIdx) { _updateRollerVisuals(cfg.id); prevIdx = idx; }
   });
 
   function endDrag() {
     if (!dragging) return;
     dragging = false;
-    rollerTouched.add(rollerPeriod + '-' + rollerHand);
+    prevIdx  = -1;
+    rollerTouched.add(_rollerKey());
     _applyRollerTransform(track, true);
     _updateRollerVisuals(cfg.id);
     _saveRollerToFormData();
@@ -2605,10 +2609,8 @@ function initRollers() {
       el.textContent = val;
       track.appendChild(el);
     }
-    track._idx = 0;
-    _applyRollerTransform(track, false);
-    _attachPointerEvents(track, cfg);
     _setRollerValue(cfg.id, null);
+    _attachPointerEvents(track, cfg);
   });
   updateRollerHint();
   updateToggleStatus();
@@ -2655,7 +2657,7 @@ function _getRollerValue(id) {
 }
 
 function _saveRollerToFormData() {
-  const key = rollerPeriod + '-' + rollerHand;
+  const key = _rollerKey();
   if (!rollerTouched.has(key)) return;
   const h = rollerHand, p = rollerPeriod;
   rollerFormData[p]['sys_'   + h] = _getRollerValue('sys');
