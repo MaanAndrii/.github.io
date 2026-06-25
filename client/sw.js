@@ -1,12 +1,14 @@
-const CACHE = 'health-v4';
-const API_CACHE = 'health-api-v4';
+const CACHE = 'health-v5';
+const API_CACHE = 'health-api-v5';
 
 const STATIC_SHELL = [
   '/',
   '/manifest.json',
   '/icons/favicon.svg',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-maskable-192.png',
+  '/icons/icon-maskable-512.png',
 ];
 
 // API GET routes to cache for offline reading
