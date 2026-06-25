@@ -667,6 +667,8 @@
     }
     .history-row-label { color: var(--muted); }
     .history-row-val { font-family: var(--mono); font-weight: 500; }
+    .history-item { cursor: pointer; transition: border-color .15s, transform .1s; }
+    .history-item:active { border-color: var(--accent); transform: scale(.99); }
     .history-actions { display: flex; gap: 4px; }
     .delete-btn {
       background: none;
@@ -690,6 +692,115 @@
       transition: color .15s, background .15s;
     }
     .edit-btn:active { color: var(--accent); background: rgba(79,142,247,.1); }
+
+    /* ── DAY NAV BUTTONS ── */
+    .day-nav-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 26px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 6px;
+      border-radius: var(--radius-sm);
+      transition: color .15s, background .15s;
+      flex-shrink: 0;
+    }
+    .day-nav-btn:active { color: var(--accent); background: var(--border); }
+    .day-nav-btn:disabled { opacity: .2; cursor: default; }
+
+    /* ── DAY DETAIL MODAL ── */
+    #dayModal { background: rgba(0,0,0,.88); }
+    #dayModal .entry-modal-box {
+      max-width: 560px; width: 98%;
+      height: 90dvh;
+      display: flex; flex-direction: column;
+    }
+    #dayModal .entry-modal-title { font-size: 18px; }
+    #dayModal .entry-modal-close { font-size: 26px; }
+    #dayModal .day-modal-body { flex: 1; overflow-y: auto; }
+    .day-modal-body { padding: 16px 18px 28px; }
+    .day-modal-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 12px;
+    }
+    .day-modal-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      margin-bottom: 12px;
+    }
+    #dayModal .history-body { gap: 8px; }
+    #dayModal .history-row { font-size: 14px; padding: 8px 12px; min-height: 40px; }
+    #dayModal .history-row-val { font-size: 15px; }
+    #dayModal .day-row-full { grid-column: 1 / -1; }
+    #dayModal .day-row-notes-val {
+      font-size: 13px; color: var(--text); font-weight: 400;
+      font-family: var(--font); white-space: pre-wrap; word-break: break-word;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .day-modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .btn-edit-day {
+      flex: 1;
+      background: rgba(79,142,247,.12);
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      padding: 14px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-edit-day:active { background: rgba(79,142,247,.25); }
+    .btn-delete-day {
+      flex: 1;
+      background: rgba(239,68,68,.1);
+      border: 1.5px solid #ef4444;
+      color: #ef4444;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      padding: 14px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-delete-day:active { background: rgba(239,68,68,.22); }
+
+    /* ── DRIVE FILE LIST ── */
+    .drive-file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .drive-file-name { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .btn-restore {
+      background: rgba(79,142,247,.12);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-restore:active { background: rgba(79,142,247,.25); }
 
     /* ── EDIT MODE BANNER ── */
     .edit-banner {
@@ -1356,10 +1467,10 @@
         <div class="export-name">PDF Довідка</div>
         <div class="export-desc">Для лікаря</div>
       </div>
-      <div class="export-card" style="opacity:0.45;cursor:not-allowed;filter:grayscale(0.4)" title="Незабаром">
+      <div class="export-card" onclick="openDriveModal()">
         <span class="export-icon">☁️</span>
         <div class="export-name">Google Drive</div>
-        <div class="export-desc">Незабаром</div>
+        <div class="export-desc">Резервна копія</div>
       </div>
     </div>
 
@@ -1686,6 +1797,59 @@
   </div>
 </div>
 
+<!-- ══ DAY DETAIL MODAL ══ -->
+<div class="modal-overlay" id="dayModal">
+  <div class="entry-modal-box">
+    <div class="entry-modal-header">
+      <button class="day-nav-btn" id="dayNavPrev" onclick="dayModalNav(-1)">‹</button>
+      <div class="entry-modal-title" id="dayModalTitle" style="text-align:center"></div>
+      <button class="day-nav-btn" id="dayNavNext" onclick="dayModalNav(1)">›</button>
+      <button class="entry-modal-close" onclick="closeDayModal()">✕</button>
+    </div>
+    <div class="day-modal-body" id="dayModalBody"></div>
+  </div>
+</div>
+
+<!-- ══ DRIVE BACKUP MODAL ══ -->
+<div class="modal-overlay" id="driveModal">
+  <div class="entry-modal-box" style="max-width:460px">
+    <div class="entry-modal-header">
+      <div class="entry-modal-title">☁️ Google Drive</div>
+      <button class="entry-modal-close" onclick="closeDriveModal()">✕</button>
+    </div>
+    <div style="padding:16px 18px 24px">
+      <div id="driveStatusBanner" style="display:none;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;margin-bottom:16px"></div>
+
+      <!-- Not connected -->
+      <div id="driveNotConnected">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+          Підключіть Google Drive щоб автоматично зберігати резервні копії ваших даних у хмарі.
+        </p>
+        <button class="btn-save" style="width:100%" onclick="connectDrive()">
+          <img src="https://www.google.com/favicon.ico" style="width:16px;height:16px;vertical-align:middle;margin-right:6px" onerror="this.style.display='none'">
+          Підключити Google Drive
+        </button>
+      </div>
+
+      <!-- Connected -->
+      <div id="driveConnected" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px">
+          <span style="color:#22c55e;font-size:18px">●</span>
+          <span style="font-weight:600">Підключено до Google Drive</span>
+          <button onclick="disconnectDrive()" style="margin-left:auto;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:2px 6px;border-radius:4px">Відключити</button>
+        </div>
+
+        <button class="btn-save" style="width:100%;margin-bottom:20px" id="btnDriveBackup" onclick="runDriveBackup()">
+          ☁️ Створити резервну копію
+        </button>
+
+        <div class="section-label" style="margin-bottom:8px">Файли на Drive</div>
+        <div id="driveFileList" style="max-height:280px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Loading overlay -->
 <div id="loadingOverlay">
   <div class="spinner"></div>
@@ -1940,6 +2104,29 @@ async function initApp() {
     // Init push subscription if reminders enabled
     if (s.enabled && 'serviceWorker' in navigator && 'PushManager' in window) {
       initPushSubscription(s);
+    }
+
+    // First login: open profile if personal data not yet filled
+    if (!currentUser.date_of_birth && !currentUser.height_cm) {
+      setTimeout(() => openProfileModal(), 400);
+    }
+
+    // Handle Drive OAuth callback redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('drive_connected') === '1') {
+      history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => openDriveModal(), 300);
+    } else if (urlParams.get('error')?.startsWith('drive_')) {
+      history.replaceState({}, '', window.location.pathname);
+      const msgs = {
+        drive_no_callback_url: 'GOOGLE_DRIVE_CALLBACK_URL не додано в .env',
+        drive_no_client_id:    'GOOGLE_CLIENT_ID не налаштовано в .env',
+        drive_denied:          'Доступ відхилено',
+        drive_token_failed:    'Не вдалось отримати токен',
+        drive_callback_failed: 'Помилка callback',
+      };
+      const code = urlParams.get('error');
+      showToast('❌ Drive: ' + (msgs[code] || code), 'var(--warn)');
     }
   } catch (err) {
     console.error('initApp error:', err);
@@ -2294,7 +2481,9 @@ async function saveTier() {
 
 // ── HELPERS ─────────────────────────────────────────────────────────────────
 function todayStr() {
-  const d = new Date();
+  return _localDateStr(new Date());
+}
+function _localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 function fmtDate(str) {
@@ -2951,11 +3140,6 @@ function renderTodaySummary() {
   _renderSummaryInGrid(selectedWeekDate || todayStr(), 'summaryGrid');
 }
 
-function renderYesterdaySummary() {
-  const base = new Date((selectedWeekDate || todayStr()) + 'T00:00:00');
-  base.setDate(base.getDate() - 1);
-  _renderSummaryInGrid(base.toISOString().slice(0, 10), 'yesterdaySummaryGrid');
-}
 
 function showDayOnHome(dateStr) {
   const today = todayStr();
@@ -2985,7 +3169,7 @@ function renderWeekStrip() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = _localDateStr(d);
     const entry = entries.find(x => String(x.date).slice(0,10) === dateStr);
     let dotClass = '';
     if (entry) {
@@ -3015,7 +3199,7 @@ function renderHomeChart() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = _localDateStr(d);
     const e = entries.find(x => String(x.date).slice(0,10) === dateStr);
     labels.push(dayNames[d.getDay()]);
     const mSys = e ? (e.morning.sys_l ?? e.morning.sys_r ?? null) : null;
@@ -3158,13 +3342,10 @@ function renderHistory() {
     const m = e.morning, ev = e.evening;
     const dateStr = String(e.date).slice(0,10);
     function bp(sys, dia) { return (sys ?? '—') + '/' + (dia ?? '—'); }
-    return `<div class="history-item">
+    return `<div class="history-item" onclick="openDayModal('${dateStr}')">
       <div class="history-header">
         <span class="history-date">${fmtDate(dateStr)}</span>
-        <div class="history-actions">
-          <button class="edit-btn" onclick="editEntry('${dateStr}')">✏️</button>
-          <button class="delete-btn" onclick="deleteEntry('${dateStr}')">🗑</button>
-        </div>
+        <span style="font-size:11px;color:var(--muted)">▶</span>
       </div>
       <div class="history-body">
         <div class="history-row">
@@ -3222,6 +3403,230 @@ async function deleteEntry(date) {
   renderHistory();
   renderTodaySummary();
   showToast('🗑 Запис видалено', 'var(--warn)');
+}
+
+// ── DAY DETAIL MODAL ────────────────────────────────────────────────────────
+let _dayModalDate = null;
+
+function _dayModalSortedDates() {
+  return entries.map(e => String(e.date).slice(0, 10)).sort();
+}
+
+function _dayModalUpdateNav() {
+  const dates = _dayModalSortedDates();
+  const idx = dates.indexOf(_dayModalDate);
+  document.getElementById('dayNavPrev').disabled = idx <= 0;
+  document.getElementById('dayNavNext').disabled = idx < 0 || idx >= dates.length - 1;
+}
+
+function dayModalNav(dir) {
+  const dates = _dayModalSortedDates();
+  const idx = dates.indexOf(_dayModalDate);
+  const next = dates[idx + dir];
+  if (next) openDayModal(next);
+}
+
+function _bpDayRow(label, sys, dia, color) {
+  return `<div class="history-row">
+    <span class="history-row-label">${label}</span>
+    <span class="history-row-val" style="color:${color}">${sys != null || dia != null ? (sys ?? '—') + '/' + (dia ?? '—') + bpBadge(sys, dia) : '<span style="color:var(--muted)">—/—</span>'}</span>
+  </div>`;
+}
+
+function _armDiffRow(sys_l, sys_r) {
+  if (sys_l == null || sys_r == null) {
+    return `<div class="history-row day-row-full">
+      <span class="history-row-label">↔ Різниця рук</span>
+      <span class="history-row-val" style="color:var(--muted)">—</span>
+    </div>`;
+  }
+  const diff = Math.abs(sys_l - sys_r);
+  if (diff > 10) {
+    return `<div class="history-row day-row-full" style="background:rgba(249,115,22,.12)">
+      <span class="history-row-label">⚠️ Різниця рук</span>
+      <span class="history-row-val" style="color:#f97316;font-weight:600">${diff} мм — консультація лікаря</span>
+    </div>`;
+  }
+  return `<div class="history-row day-row-full">
+    <span class="history-row-label">↔ Різниця рук</span>
+    <span class="history-row-val" style="color:var(--muted)">${diff} мм</span>
+  </div>`;
+}
+
+function openDayModal(dateStr) {
+  const e = entries.find(x => String(x.date).slice(0,10) === dateStr);
+  if (!e) return;
+  _dayModalDate = dateStr;
+  const m = e.morning || {}, ev = e.evening || {};
+  document.getElementById('dayModalTitle').textContent = fmtDate(dateStr);
+  document.getElementById('dayModalBody').innerHTML = `
+    <div class="day-modal-section">
+      <div class="day-modal-section-title">🌅 Ранок</div>
+      <div class="history-body">
+        ${_bpDayRow('Ліва рука', m.sys_l, m.dia_l, 'var(--morning)')}
+        ${_bpDayRow('Права рука', m.sys_r, m.dia_r, 'var(--morning)')}
+        ${_armDiffRow(m.sys_l, m.sys_r)}
+        <div class="history-row day-row-full">
+          <span class="history-row-label">💚 Пульс</span>
+          <span class="history-row-val" style="color:${m.pulse != null ? 'var(--accent2)' : 'var(--muted)'}">
+            ${m.pulse != null ? m.pulse + ' уд/хв' : '—'}
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="day-modal-section">
+      <div class="day-modal-section-title">🌙 Вечір</div>
+      <div class="history-body">
+        ${_bpDayRow('Ліва рука', ev.sys_l, ev.dia_l, 'var(--evening)')}
+        ${_bpDayRow('Права рука', ev.sys_r, ev.dia_r, 'var(--evening)')}
+        ${_armDiffRow(ev.sys_l, ev.sys_r)}
+        <div class="history-row day-row-full">
+          <span class="history-row-label">💚 Пульс</span>
+          <span class="history-row-val" style="color:${ev.pulse != null ? 'var(--accent2)' : 'var(--muted)'}">
+            ${ev.pulse != null ? ev.pulse + ' уд/хв' : '—'}
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="day-modal-section">
+      <div class="history-body">
+        <div class="history-row day-row-full">
+          <span class="history-row-label">⚖️ Вага</span>
+          <span class="history-row-val" style="color:${e.weight != null ? 'var(--accent3)' : 'var(--muted)'}">
+            ${e.weight != null ? e.weight + ' кг' : '—'}
+          </span>
+        </div>
+        <div class="history-row day-row-full" style="align-items:flex-start;padding-top:10px">
+          <span class="history-row-label" style="padding-top:2px">📝 Нотатки</span>
+          ${e.notes
+            ? `<span class="day-row-notes-val">${escHtml(e.notes)}</span>`
+            : `<span class="history-row-val" style="color:var(--muted)">—</span>`}
+        </div>
+      </div>
+    </div>
+    <div class="day-modal-actions">
+      <button class="btn-edit-day" onclick="closeDayModal();editEntry('${dateStr}')">✏️ Редагувати</button>
+      <button class="btn-delete-day" onclick="closeDayModal();deleteEntry('${dateStr}')">🗑 Видалити</button>
+    </div>`;
+  document.getElementById('dayModal').classList.add('open');
+  _dayModalUpdateNav();
+}
+
+function closeDayModal() {
+  document.getElementById('dayModal').classList.remove('open');
+}
+
+// ── DRIVE BACKUP ────────────────────────────────────────────────────────────
+async function openDriveModal() {
+  document.getElementById('driveModal').classList.add('open');
+  document.getElementById('driveStatusBanner').style.display = 'none';
+  document.getElementById('driveNotConnected').style.display = 'none';
+  document.getElementById('driveConnected').style.display = 'none';
+  document.getElementById('driveFileList').innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Завантаження…</div>';
+
+  try {
+    const r = await fetch('/api/backup/drive/status');
+    const { connected } = await r.json();
+    if (connected) {
+      document.getElementById('driveConnected').style.display = 'block';
+      loadDriveFileList();
+    } else {
+      document.getElementById('driveNotConnected').style.display = 'block';
+    }
+  } catch {
+    document.getElementById('driveNotConnected').style.display = 'block';
+  }
+}
+
+function closeDriveModal() {
+  document.getElementById('driveModal').classList.remove('open');
+}
+
+function connectDrive() {
+  window.location.href = '/api/auth/google/drive';
+}
+
+async function disconnectDrive() {
+  if (!confirm('Відключити Google Drive? Файли на Drive не будуть видалені.')) return;
+  await fetch('/api/backup/drive', { method: 'DELETE' });
+  document.getElementById('driveConnected').style.display = 'none';
+  document.getElementById('driveNotConnected').style.display = 'block';
+}
+
+async function runDriveBackup() {
+  const btn = document.getElementById('btnDriveBackup');
+  btn.disabled = true;
+  btn.textContent = '⏳ Збереження…';
+  try {
+    const r = await fetch('/api/backup/drive', { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Помилка');
+    _driveShowBanner(`✅ Збережено: ${data.filename} (${data.count} записів)`, 'success');
+    loadDriveFileList();
+  } catch (err) {
+    _driveShowBanner('❌ ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '☁️ Створити резервну копію';
+  }
+}
+
+async function loadDriveFileList() {
+  const box = document.getElementById('driveFileList');
+  box.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Завантаження…</div>';
+  try {
+    const r = await fetch('/api/backup/drive/list');
+    const { files } = await r.json();
+    if (!files?.length) {
+      box.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Резервних копій ще немає</div>';
+      return;
+    }
+    box.innerHTML = files.map(f => {
+      const date = f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString('uk-UA') : '';
+      const kb   = f.size ? Math.round(f.size / 1024) + ' КБ' : '';
+      return `<div class="drive-file-item">
+        <div>
+          <div class="drive-file-name">${escHtml(f.name)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${date}${kb ? ' · ' + kb : ''}</div>
+        </div>
+        <button class="btn-restore" onclick="restoreFromDrive('${f.id}', '${escHtml(f.name)}')">Відновити</button>
+      </div>`;
+    }).join('');
+  } catch {
+    box.innerHTML = '<div style="color:var(--warn);font-size:13px;padding:8px 0">Помилка завантаження списку</div>';
+  }
+}
+
+async function restoreFromDrive(fileId, filename) {
+  if (!confirm(`Відновити дані з файлу ${filename}?\nНаявні записи НЕ будуть видалені — додадуться лише нові дати.`)) return;
+  showLoading('Відновлення з Drive…');
+  try {
+    const r = await fetch('/api/backup/drive/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Помилка');
+    await fetchEntries();
+    renderHistory();
+    renderTodaySummary();
+    closeDriveModal();
+    showToast(`✅ Відновлено: +${data.imported} нових, ${data.skipped} пропущено`);
+  } catch (err) {
+    showToast('❌ ' + err.message, 'var(--warn)');
+  } finally {
+    hideLoading();
+  }
+}
+
+function _driveShowBanner(msg, type) {
+  const el = document.getElementById('driveStatusBanner');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = type === 'success' ? 'rgba(34,197,94,.12)' : 'rgba(239,68,68,.12)';
+  el.style.border = `1px solid ${type === 'success' ? 'rgba(34,197,94,.4)' : 'rgba(239,68,68,.4)'}`;
+  el.style.color = type === 'success' ? '#22c55e' : '#ef4444';
 }
 
 // ── CHARTS ──────────────────────────────────────────────────────────────────
@@ -3308,16 +3713,28 @@ function renderCharts() {
 
   buildChart('chartPulse', labels, [
     {
-      label: 'Ранок', data: data.map(e => e.morning.pulse),
-      borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.1)',
-      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#34d399', fill: true
+      label: 'Ранок Л', data: data.map(e => e.morning.pulse_l ?? e.morning.pulse),
+      borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.08)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#34d399', fill: false
     },
     {
-      label: 'Вечір', data: data.map(e => e.evening.pulse),
-      borderColor: '#6ee7b7', backgroundColor: 'rgba(110,231,183,.05)',
-      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#6ee7b7', fill: true
+      label: 'Ранок П', data: data.map(e => e.morning.pulse_r ?? e.morning.pulse),
+      borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.04)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#34d399', fill: false,
+      borderDash: [4,3]
+    },
+    {
+      label: 'Вечір Л', data: data.map(e => e.evening.pulse_l ?? e.evening.pulse),
+      borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,.08)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#818cf8', fill: false
+    },
+    {
+      label: 'Вечір П', data: data.map(e => e.evening.pulse_r ?? e.evening.pulse),
+      borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,.04)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#818cf8', fill: false,
+      borderDash: [4,3]
     }
-  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 11 } } } } });
+  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 10 }, boxWidth: 20 } } } });
 
   buildChart('chartWeight', labels, [
     {
@@ -3578,6 +3995,30 @@ document.getElementById('profileModal').addEventListener('click', function(e) {
 
 document.getElementById('entryModal').addEventListener('click', function(e) {
   if (e.target === this) closeEntryModal();
+});
+
+document.getElementById('dayModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDayModal();
+});
+
+// Swipe left/right in day detail modal
+(function() {
+  const box = document.querySelector('#dayModal .entry-modal-box');
+  let startX = 0, startY = 0;
+  box.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  box.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    dayModalNav(dx < 0 ? 1 : -1);
+  }, { passive: true });
+})();
+
+document.getElementById('driveModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDriveModal();
 });
 
 // ── REMINDERS ────────────────────────────────────────────────────────────────
