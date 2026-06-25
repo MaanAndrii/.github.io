@@ -711,9 +711,14 @@
 
     /* ── DAY DETAIL MODAL ── */
     #dayModal { background: rgba(0,0,0,.88); }
-    #dayModal .entry-modal-box { max-width: 560px; width: 98%; max-height: 94dvh; }
+    #dayModal .entry-modal-box {
+      max-width: 560px; width: 98%;
+      height: 90dvh;
+      display: flex; flex-direction: column;
+    }
     #dayModal .entry-modal-title { font-size: 18px; }
     #dayModal .entry-modal-close { font-size: 26px; }
+    #dayModal .day-modal-body { flex: 1; overflow-y: auto; }
     .day-modal-body { padding: 16px 18px 28px; }
     .day-modal-section {
       background: var(--card);
@@ -731,11 +736,14 @@
       margin-bottom: 12px;
     }
     #dayModal .history-body { gap: 8px; }
-    #dayModal .history-row {
-      font-size: 14px;
-      padding: 8px 12px;
-    }
+    #dayModal .history-row { font-size: 14px; padding: 8px 12px; min-height: 40px; }
     #dayModal .history-row-val { font-size: 15px; }
+    #dayModal .day-row-full { grid-column: 1 / -1; }
+    #dayModal .day-row-notes-val {
+      font-size: 13px; color: var(--text); font-weight: 400;
+      font-family: var(--font); white-space: pre-wrap; word-break: break-word;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
     .day-modal-actions {
       display: flex;
       gap: 12px;
@@ -3423,62 +3431,84 @@ function dayModalNav(dir) {
   if (next) openDayModal(next);
 }
 
+function _bpDayRow(label, sys, dia, color) {
+  return `<div class="history-row">
+    <span class="history-row-label">${label}</span>
+    <span class="history-row-val" style="color:${color}">${sys != null || dia != null ? (sys ?? '—') + '/' + (dia ?? '—') + bpBadge(sys, dia) : '<span style="color:var(--muted)">—/—</span>'}</span>
+  </div>`;
+}
+
+function _armDiffRow(sys_l, sys_r) {
+  if (sys_l == null || sys_r == null) {
+    return `<div class="history-row day-row-full">
+      <span class="history-row-label">↔ Різниця рук</span>
+      <span class="history-row-val" style="color:var(--muted)">—</span>
+    </div>`;
+  }
+  const diff = Math.abs(sys_l - sys_r);
+  if (diff > 10) {
+    return `<div class="history-row day-row-full" style="background:rgba(249,115,22,.12)">
+      <span class="history-row-label">⚠️ Різниця рук</span>
+      <span class="history-row-val" style="color:#f97316;font-weight:600">${diff} мм — консультація лікаря</span>
+    </div>`;
+  }
+  return `<div class="history-row day-row-full">
+    <span class="history-row-label">↔ Різниця рук</span>
+    <span class="history-row-val" style="color:var(--muted)">${diff} мм</span>
+  </div>`;
+}
+
 function openDayModal(dateStr) {
   const e = entries.find(x => String(x.date).slice(0,10) === dateStr);
   if (!e) return;
   _dayModalDate = dateStr;
   const m = e.morning || {}, ev = e.evening || {};
-  function bp(sys, dia) { return (sys ?? '—') + '/' + (dia ?? '—'); }
   document.getElementById('dayModalTitle').textContent = fmtDate(dateStr);
   document.getElementById('dayModalBody').innerHTML = `
     <div class="day-modal-section">
       <div class="day-modal-section-title">🌅 Ранок</div>
       <div class="history-body">
-        <div class="history-row">
-          <span class="history-row-label">Ліва рука</span>
-          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_l, m.dia_l)}${bpBadge(m.sys_l, m.dia_l)}</span>
-        </div>
-        <div class="history-row">
-          <span class="history-row-label">Права рука</span>
-          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_r, m.dia_r)}${bpBadge(m.sys_r, m.dia_r)}</span>
-        </div>
-        ${armDiffWarning(m.sys_l, m.sys_r)}
-        <div class="history-row">
-          <span class="history-row-label">Пульс</span>
-          <span class="history-row-val" style="color:var(--accent2)">${m.pulse ?? '—'} уд/хв</span>
+        ${_bpDayRow('Ліва рука', m.sys_l, m.dia_l, 'var(--morning)')}
+        ${_bpDayRow('Права рука', m.sys_r, m.dia_r, 'var(--morning)')}
+        ${_armDiffRow(m.sys_l, m.sys_r)}
+        <div class="history-row day-row-full">
+          <span class="history-row-label">💚 Пульс</span>
+          <span class="history-row-val" style="color:${m.pulse != null ? 'var(--accent2)' : 'var(--muted)'}">
+            ${m.pulse != null ? m.pulse + ' уд/хв' : '—'}
+          </span>
         </div>
       </div>
     </div>
     <div class="day-modal-section">
       <div class="day-modal-section-title">🌙 Вечір</div>
       <div class="history-body">
-        <div class="history-row">
-          <span class="history-row-label">Ліва рука</span>
-          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_l, ev.dia_l)}${bpBadge(ev.sys_l, ev.dia_l)}</span>
-        </div>
-        <div class="history-row">
-          <span class="history-row-label">Права рука</span>
-          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_r, ev.dia_r)}${bpBadge(ev.sys_r, ev.dia_r)}</span>
-        </div>
-        ${armDiffWarning(ev.sys_l, ev.sys_r)}
-        <div class="history-row">
-          <span class="history-row-label">Пульс</span>
-          <span class="history-row-val" style="color:var(--accent2)">${ev.pulse ?? '—'} уд/хв</span>
+        ${_bpDayRow('Ліва рука', ev.sys_l, ev.dia_l, 'var(--evening)')}
+        ${_bpDayRow('Права рука', ev.sys_r, ev.dia_r, 'var(--evening)')}
+        ${_armDiffRow(ev.sys_l, ev.sys_r)}
+        <div class="history-row day-row-full">
+          <span class="history-row-label">💚 Пульс</span>
+          <span class="history-row-val" style="color:${ev.pulse != null ? 'var(--accent2)' : 'var(--muted)'}">
+            ${ev.pulse != null ? ev.pulse + ' уд/хв' : '—'}
+          </span>
         </div>
       </div>
     </div>
-    ${e.weight ? `<div class="day-modal-section">
+    <div class="day-modal-section">
       <div class="history-body">
-        <div class="history-row" style="grid-column:1/-1">
+        <div class="history-row day-row-full">
           <span class="history-row-label">⚖️ Вага</span>
-          <span class="history-row-val" style="color:var(--accent3)">${e.weight} кг</span>
+          <span class="history-row-val" style="color:${e.weight != null ? 'var(--accent3)' : 'var(--muted)'}">
+            ${e.weight != null ? e.weight + ' кг' : '—'}
+          </span>
+        </div>
+        <div class="history-row day-row-full" style="align-items:flex-start;padding-top:10px">
+          <span class="history-row-label" style="padding-top:2px">📝 Нотатки</span>
+          ${e.notes
+            ? `<span class="day-row-notes-val">${escHtml(e.notes)}</span>`
+            : `<span class="history-row-val" style="color:var(--muted)">—</span>`}
         </div>
       </div>
-    </div>` : ''}
-    ${e.notes ? `<div class="day-modal-section">
-      <div class="day-modal-section-title">📝 Нотатки</div>
-      <div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word">${escHtml(e.notes)}</div>
-    </div>` : ''}
+    </div>
     <div class="day-modal-actions">
       <button class="btn-edit-day" onclick="closeDayModal();editEntry('${dateStr}')">✏️ Редагувати</button>
       <button class="btn-delete-day" onclick="closeDayModal();deleteEntry('${dateStr}')">🗑 Видалити</button>
