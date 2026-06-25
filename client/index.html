@@ -693,6 +693,22 @@
     }
     .edit-btn:active { color: var(--accent); background: rgba(79,142,247,.1); }
 
+    /* ── DAY NAV BUTTONS ── */
+    .day-nav-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 26px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 6px;
+      border-radius: var(--radius-sm);
+      transition: color .15s, background .15s;
+      flex-shrink: 0;
+    }
+    .day-nav-btn:active { color: var(--accent); background: var(--border); }
+    .day-nav-btn:disabled { opacity: .2; cursor: default; }
+
     /* ── DAY DETAIL MODAL ── */
     #dayModal { background: rgba(0,0,0,.88); }
     #dayModal .entry-modal-box { max-width: 560px; width: 98%; max-height: 94dvh; }
@@ -1777,7 +1793,9 @@
 <div class="modal-overlay" id="dayModal">
   <div class="entry-modal-box">
     <div class="entry-modal-header">
-      <div class="entry-modal-title" id="dayModalTitle"></div>
+      <button class="day-nav-btn" id="dayNavPrev" onclick="dayModalNav(-1)">‹</button>
+      <div class="entry-modal-title" id="dayModalTitle" style="text-align:center"></div>
+      <button class="day-nav-btn" id="dayNavNext" onclick="dayModalNav(1)">›</button>
       <button class="entry-modal-close" onclick="closeDayModal()">✕</button>
     </div>
     <div class="day-modal-body" id="dayModalBody"></div>
@@ -3385,9 +3403,30 @@ async function deleteEntry(date) {
 }
 
 // ── DAY DETAIL MODAL ────────────────────────────────────────────────────────
+let _dayModalDate = null;
+
+function _dayModalSortedDates() {
+  return entries.map(e => String(e.date).slice(0, 10)).sort();
+}
+
+function _dayModalUpdateNav() {
+  const dates = _dayModalSortedDates();
+  const idx = dates.indexOf(_dayModalDate);
+  document.getElementById('dayNavPrev').disabled = idx <= 0;
+  document.getElementById('dayNavNext').disabled = idx < 0 || idx >= dates.length - 1;
+}
+
+function dayModalNav(dir) {
+  const dates = _dayModalSortedDates();
+  const idx = dates.indexOf(_dayModalDate);
+  const next = dates[idx + dir];
+  if (next) openDayModal(next);
+}
+
 function openDayModal(dateStr) {
   const e = entries.find(x => String(x.date).slice(0,10) === dateStr);
   if (!e) return;
+  _dayModalDate = dateStr;
   const m = e.morning || {}, ev = e.evening || {};
   function bp(sys, dia) { return (sys ?? '—') + '/' + (dia ?? '—'); }
   document.getElementById('dayModalTitle').textContent = fmtDate(dateStr);
@@ -3445,6 +3484,7 @@ function openDayModal(dateStr) {
       <button class="btn-delete-day" onclick="closeDayModal();deleteEntry('${dateStr}')">🗑 Видалити</button>
     </div>`;
   document.getElementById('dayModal').classList.add('open');
+  _dayModalUpdateNav();
 }
 
 function closeDayModal() {
@@ -3648,16 +3688,28 @@ function renderCharts() {
 
   buildChart('chartPulse', labels, [
     {
-      label: 'Ранок', data: data.map(e => e.morning.pulse),
-      borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.1)',
-      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#34d399', fill: true
+      label: 'Ранок Л', data: data.map(e => e.morning.pulse_l ?? e.morning.pulse),
+      borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.08)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#34d399', fill: false
     },
     {
-      label: 'Вечір', data: data.map(e => e.evening.pulse),
-      borderColor: '#6ee7b7', backgroundColor: 'rgba(110,231,183,.05)',
-      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#6ee7b7', fill: true
+      label: 'Ранок П', data: data.map(e => e.morning.pulse_r ?? e.morning.pulse),
+      borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.04)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#34d399', fill: false,
+      borderDash: [4,3]
+    },
+    {
+      label: 'Вечір Л', data: data.map(e => e.evening.pulse_l ?? e.evening.pulse),
+      borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,.08)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#818cf8', fill: false
+    },
+    {
+      label: 'Вечір П', data: data.map(e => e.evening.pulse_r ?? e.evening.pulse),
+      borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,.04)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#818cf8', fill: false,
+      borderDash: [4,3]
     }
-  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 11 } } } } });
+  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 10 }, boxWidth: 20 } } } });
 
   buildChart('chartWeight', labels, [
     {
@@ -3923,6 +3975,22 @@ document.getElementById('entryModal').addEventListener('click', function(e) {
 document.getElementById('dayModal').addEventListener('click', function(e) {
   if (e.target === this) closeDayModal();
 });
+
+// Swipe left/right in day detail modal
+(function() {
+  const box = document.querySelector('#dayModal .entry-modal-box');
+  let startX = 0, startY = 0;
+  box.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  box.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    dayModalNav(dx < 0 ? 1 : -1);
+  }, { passive: true });
+})();
 
 document.getElementById('driveModal').addEventListener('click', function(e) {
   if (e.target === this) closeDriveModal();
