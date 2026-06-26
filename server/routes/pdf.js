@@ -9,7 +9,8 @@ const router = express.Router();
 // POST /api/pdf — generate PDF report
 router.post('/', requireAuth, async (req, res) => {
   try {
-    let { userId, dateFrom, dateTo } = req.body;
+    let { userId, dateFrom, dateTo, mode } = req.body;
+    if (mode !== 'extended') mode = 'short';
 
     // Only admins can generate reports for other users
     if (userId && userId !== req.user.id) {
@@ -47,7 +48,7 @@ router.post('/', requireAuth, async (req, res) => {
       [userId, dateFrom, dateTo]
     );
 
-    const pdfBuffer = await generatePdf(user, entriesResult.rows, dateFrom, dateTo);
+    const pdfBuffer = await generatePdf(user, entriesResult.rows, dateFrom, dateTo, mode);
 
     const filename = `health_report_${dateFrom}_${dateTo}.pdf`;
     res.set({

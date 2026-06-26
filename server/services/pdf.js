@@ -101,7 +101,7 @@ const LOGO_SVG = _iconSvgRaw
   .replace(/<\?xml[^?]*\?>/, '')
   .replace(/<svg /, '<svg width="56" height="56" ');
 
-function buildHtml(user, entries, dateFrom, dateTo) {
+function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
   const today = fmtDateUk(new Date().toISOString().slice(0, 10));
   const dob = user.date_of_birth ? fmtDateUk(user.date_of_birth) : '—';
   let age = '—';
@@ -180,7 +180,7 @@ function buildHtml(user, entries, dateFrom, dateTo) {
     return `<tr><td class="stat-label">${label}</td><td class="stat-val">${value ?? '—'}</td></tr>`;
   }
 
-  const statsSection = filtered.length >= 3 ? `
+  const statsSection = (mode === 'extended' && filtered.length >= 3) ? `
   <div class="section-title">📊 Статистичний аналіз (WHO/ESH 2023)</div>
   <div class="stats-grid">
     <div class="stats-block">
@@ -399,7 +399,7 @@ function buildHtml(user, entries, dateFrom, dateTo) {
     ${LOGO_SVG}
     <div class="report-header-text">
       <div class="report-title">ЖУРНАЛ АРТЕРІАЛЬНОГО ТИСКУ</div>
-      <div class="report-subtitle">BP &amp; BMI — Система моніторингу здоров'я</div>
+      <div class="report-subtitle">BP &amp; BMI — ${mode === 'extended' ? 'Розширений звіт з аналітикою' : 'Таблиця показників для лікаря'}</div>
     </div>
   </div>
 
@@ -443,8 +443,8 @@ function buildHtml(user, entries, dateFrom, dateTo) {
 </html>`;
 }
 
-async function generatePdf(user, entries, dateFrom, dateTo) {
-  const html = buildHtml(user, entries, dateFrom, dateTo);
+async function generatePdf(user, entries, dateFrom, dateTo, mode = 'short') {
+  const html = buildHtml(user, entries, dateFrom, dateTo, mode);
 
   const browser = await puppeteer.launch({
     headless: 'new',

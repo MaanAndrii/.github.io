@@ -1598,10 +1598,20 @@
       <input type="date" id="pdfDateFrom"
         oninput="document.getElementById('pdfDateTo').min = this.value" />
     </div>
-    <div class="field">
+    <div class="field" style="margin-bottom:14px">
       <label>Дата до</label>
       <input type="date" id="pdfDateTo"
         oninput="document.getElementById('pdfDateFrom').max = this.value" />
+    </div>
+    <div class="field" style="margin-bottom:6px">
+      <label>Тип звіту</label>
+    </div>
+    <div class="period-toggle" style="margin-bottom:16px">
+      <button class="toggle-btn active" id="pdfModeShort"    onclick="setPdfMode('short')">📋 Коротка</button>
+      <button class="toggle-btn"        id="pdfModeExtended" onclick="setPdfMode('extended')">📊 Розширена</button>
+    </div>
+    <div id="pdfModeHint" style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.4">
+      Таблиця показників за вибраний період
     </div>
     <div class="modal-actions">
       <button class="btn-outline" style="flex:1" onclick="closePdfModal()">Скасувати</button>
@@ -1892,7 +1902,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '1.07';
+const APP_VERSION   = '1.08';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3991,6 +4001,17 @@ function renderExportStats() {
 }
 
 // ── PDF EXPORT ───────────────────────────────────────────────────────────────
+let _pdfMode = 'short';
+
+function setPdfMode(m) {
+  _pdfMode = m;
+  document.getElementById('pdfModeShort').classList.toggle('active', m === 'short');
+  document.getElementById('pdfModeExtended').classList.toggle('active', m === 'extended');
+  document.getElementById('pdfModeHint').textContent = m === 'extended'
+    ? 'Таблиця показників + статистика та аналітика (WHO/ESH 2023)'
+    : 'Таблиця показників за вибраний період';
+}
+
 function openPdfModal() {
   const today = todayStr();
   // Default: last 30 days
@@ -4003,6 +4024,7 @@ function openPdfModal() {
   document.getElementById('pdfDateTo').value   = today;
   document.getElementById('pdfDateTo').min     = fromStr;
   document.getElementById('pdfDateTo').max     = today;
+  setPdfMode('short');
   document.getElementById('pdfModal').classList.add('open');
 }
 
@@ -4030,7 +4052,7 @@ async function exportPDF() {
     const r = await fetch('/api/pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dateFrom, dateTo }),
+      body: JSON.stringify({ dateFrom, dateTo, mode: _pdfMode }),
     });
 
     if (!r.ok) {
