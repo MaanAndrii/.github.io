@@ -1902,7 +1902,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '1.08';
+const APP_VERSION   = '1.09';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3814,13 +3814,34 @@ function renderCharts() {
     }
   ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 10 }, boxWidth: 20 } } } });
 
-  buildChart('chartWeight', labels, [
+  const _h = currentUser?.height_cm;
+  const _wMin = _h ? Math.round(18.5 * (_h/100)**2 * 10) / 10 : null;
+  const _wMax = _h ? Math.round(24.9 * (_h/100)**2 * 10) / 10 : null;
+  const _weightDatasets = [
     {
       label: 'Вага (кг)', data: data.map(e => e.weight),
       borderColor: '#f472b6', backgroundColor: 'rgba(244,114,182,.1)',
       borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#f472b6', fill: true
     }
-  ]);
+  ];
+  if (_wMin !== null) {
+    _weightDatasets.push({
+      label: `Норма ІМТ (${_wMin}–${_wMax} кг)`,
+      data: labels.map(() => _wMax),
+      borderColor: 'rgba(34,197,94,.6)', borderWidth: 1.5, borderDash: [5, 4],
+      pointRadius: 0, fill: '+1', backgroundColor: 'rgba(34,197,94,.1)',
+    });
+    _weightDatasets.push({
+      label: '',
+      data: labels.map(() => _wMin),
+      borderColor: 'rgba(34,197,94,.6)', borderWidth: 1.5, borderDash: [5, 4],
+      pointRadius: 0, fill: false,
+    });
+  }
+  buildChart('chartWeight', labels, _weightDatasets, _wMin !== null ? {
+    plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 10 }, boxWidth: 16,
+      filter: item => item.text !== '' } } }
+  } : {});
 
   function avgOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.round(a.reduce((s,x)=>s+x,0)/a.length) : null; }
   const avgStats = [
