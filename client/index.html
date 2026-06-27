@@ -1537,6 +1537,9 @@
       <button class="btn-save" id="btnNotifPermission" onclick="requestNotifPermission()" style="display:none">
         🔔 Дозволити сповіщення
       </button>
+      <button class="btn-save" id="btnTestPush" onclick="sendTestPush()" style="display:none;margin-top:8px;background:var(--surface);color:var(--text);border:1px solid var(--border)">
+        📳 Надіслати тестове сповіщення
+      </button>
       <div class="time-row" style="margin-top:12px">
         <div class="time-field" style="flex:1">
           <label>🌍 Часовий пояс</label>
@@ -1905,7 +1908,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.02';
+const APP_VERSION   = '2.03';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -2146,9 +2149,11 @@ async function initApp() {
     const s = loadReminderSettings();
     scheduleReminders(s);
 
-    // Init push subscription if reminders enabled
+    // Init push subscription if reminders enabled; save to server if (re)created
     if (s.enabled && 'serviceWorker' in navigator && 'PushManager' in window) {
-      initPushSubscription(s);
+      initPushSubscription(s).then(sub => {
+        if (sub) savePushSettingsToServer({ subscription: sub }).catch(() => {});
+      }).catch(() => {});
     }
 
     // First login: open profile if personal data not yet filled
@@ -4209,17 +4214,17 @@ async function saveReminderSettings() {
 
   // Save to server + handle push subscription
   try {
-    let subscription = null;
-    if (s.enabled && 'serviceWorker' in navigator && 'PushManager' in window) {
-      subscription = await initPushSubscription(s);
+    const payload = { morning: s.morning, evening: s.evening, enabled: s.enabled, timezone: s.timezone };
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      if (s.enabled) {
+        const sub = await initPushSubscription(s);
+        if (sub !== null) payload.subscription = sub; // only update DB if we got a valid sub
+        // if null (e.g. SW not ready yet) — leave existing subscription in DB intact
+      } else {
+        payload.subscription = null; // explicitly clear when user disables reminders
+      }
     }
-    await savePushSettingsToServer({
-      subscription,
-      morning:  s.morning,
-      evening:  s.evening,
-      enabled:  s.enabled,
-      timezone: s.timezone,
-    });
+    await savePushSettingsToServer(payload);
   } catch (err) {
     console.warn('savePushSettings failed:', err);
   }
@@ -4309,25 +4314,30 @@ async function renderRemindersUI() {
   } catch {}
 
   const perm = 'Notification' in window ? Notification.permission : 'unsupported';
-  const statusEl = document.getElementById('notifStatus');
-  const btnEl    = document.getElementById('btnNotifPermission');
+  const statusEl  = document.getElementById('notifStatus');
+  const btnEl     = document.getElementById('btnNotifPermission');
+  const btnTestEl = document.getElementById('btnTestPush');
 
   if (perm === 'granted') {
     statusEl.className = 'notif-status granted';
     statusEl.textContent = '✅ Сповіщення дозволено';
     btnEl.style.display = 'none';
+    btnTestEl.style.display = 'flex';
   } else if (perm === 'denied') {
     statusEl.className = 'notif-status denied';
     statusEl.textContent = '🚫 Сповіщення заблоковано браузером. Дозвольте їх у налаштуваннях сайту.';
     btnEl.style.display = 'none';
+    btnTestEl.style.display = 'none';
   } else if (perm === 'unsupported') {
     statusEl.className = 'notif-status denied';
     statusEl.textContent = '⚠️ Ваш браузер не підтримує сповіщення';
     btnEl.style.display = 'none';
+    btnTestEl.style.display = 'none';
   } else {
     statusEl.className = 'notif-status default';
     statusEl.textContent = '💡 Натисніть кнопку нижче, щоб дозволити сповіщення';
     btnEl.style.display = 'flex';
+    btnTestEl.style.display = 'none';
   }
 }
 
@@ -4340,6 +4350,28 @@ async function requestNotifPermission() {
     scheduleReminders(s);
     await saveReminderSettings();
     showToast('🔔 Сповіщення увімкнено!');
+  }
+}
+
+async function sendTestPush() {
+  const btn = document.getElementById('btnTestPush');
+  btn.disabled = true;
+  btn.textContent = '⏳ Надсилаємо...';
+  try {
+    const r = await fetch('/api/push/test', { method: 'POST' });
+    const data = await r.json();
+    if (r.ok) {
+      showToast('📳 Тестове сповіщення надіслано!');
+    } else if (data.error === 'no_subscription') {
+      showToast('⚠️ Підписка не збережена. Спробуйте вимкнути і увімкнути нагадування знову.');
+    } else {
+      showToast('❌ Помилка надсилання: ' + (data.error || r.status));
+    }
+  } catch {
+    showToast('❌ Помилка мережі');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📳 Надіслати тестове сповіщення';
   }
 }
 
