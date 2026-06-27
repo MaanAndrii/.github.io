@@ -72,7 +72,7 @@ app.use('/api/export', exportRouter);
 
 // ── Static Files ────────────────────────────────────────────────────────────
 const clientDir = path.join(__dirname, '..', 'client');
-app.use(express.static(clientDir));
+app.use(express.static(clientDir, { extensions: ['html'] }));
 
 // SPA fallback — serve index.html for any non-API route
 app.get('*', (req, res) => {
