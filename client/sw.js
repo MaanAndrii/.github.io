@@ -62,9 +62,6 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Only cache GET requests
-  if (request.method !== 'GET') return;
-
   // HTML navigation — network only, never cache (content depends on auth state)
   if (request.mode === 'navigate') {
     e.respondWith(fetch(request));
