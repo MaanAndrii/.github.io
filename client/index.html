@@ -2116,6 +2116,7 @@ async function confirmDeleteAccount() {
 }
 
 async function initApp() {
+  if (window.location.pathname !== '/') history.replaceState({}, '', '/');
   try {
     const r = await fetch('/api/auth/me');
     if (!r.ok) {
