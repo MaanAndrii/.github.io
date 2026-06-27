@@ -6,7 +6,7 @@
 - `client/index.html` → `const APP_VERSION = 'X.XX'`
 - `client/sw.js` → `const CACHE = 'health-vN'` і `const API_CACHE = 'health-api-vN'` (N — ціле, збільшувати на 1)
 
-Поточна версія: **1.12** (SW: health-v12).
+Поточна версія: **2.06** (SW: health-v18).
 
 ## Stack
 
@@ -53,7 +53,7 @@ logs/app.log            — file-based error log
 
 ## Active branch
 
-`claude/dreamy-cannon-p1768u`
+`claude/gallant-brown-xfe3zt`
 
 ---
 
@@ -88,12 +88,19 @@ logs/app.log            — file-based error log
 - [x] **First-login onboarding**: profile modal auto-opens if DOB and height are not set
 - [x] **Midnight/timezone fix**: `_localDateStr()` used everywhere for date strings (fixes week strip showing wrong day after midnight in UTC+N)
 - [x] **Google Drive backup + restore**: separate OAuth (`drive.file` scope), token stored in DB, folder «BP & BMI Backup», per-day files, no-overwrite restore
+- [x] **Public landing page**: single `/` route — server checks JWT cookie: authenticated → SPA (`index.html`), guest → landing page (`landing.html`)
+- [x] **Landing page auth form**: Google OAuth + local login/register tabs embedded on landing page; no redirect needed
+- [x] **Privacy Policy + Terms of Use pages**: `client/privacy.html`, `client/terms.html`; linked from landing and SPA footer
+- [x] **Modal overlay improvements**: darker background (`rgba(0,0,0,.75)` + blur), CSS `:has()` blocks pointer-events on body while modal is open
+- [x] **Google OAuth → `/app` redirect**: after OAuth callback, server redirects to `/app` (not `/`) to bypass SW cache of landing page; SPA normalizes URL to `/` via `history.replaceState`
+- [x] **Cloudflare trust proxy**: `app.set('trust proxy', 1)` so rate limiter uses real client IP (not Cloudflare IP)
+- [x] **Dead code removed**: `avg()`, `bpStatus()`, `armDiffWarning()` JS functions; `.range-bar`, `.range-ok`, `.range-high`, `.range-low` CSS
 
 ### 🔲 Pending / Known issues
 
 - [ ] **D** — Timezone selector for reminders (cron runs in server TZ; Pi uses `timedatectl`)
 - [x] **J** — Demo tier server-side enforcement: `tierGuard` middleware on all export/import endpoints; `requireDriveTier` on Drive backup/restore; 403 `demo_restricted` returned for blocked features
-- [x] **M** — Service Worker offline mode: app shell + icons cached on install (`health-v4`); `/api/entries` + `/api/auth/me` network-first with stale cache fallback; mutations network-only
+- [x] **M** — Service Worker offline mode: app shell + icons cached on install (`health-v14`); `/api/entries` + `/api/auth/me` network-first with stale cache fallback; mutations network-only
 
 ### 🔲 Future / Deferred
 

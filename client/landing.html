@@ -265,7 +265,22 @@
       const el = document.getElementById('authError');
       el.textContent = msg;
       el.style.display = 'block';
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+
+    // Handle error/success params from OAuth redirects
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const err = params.get('error');
+      if (err === 'access_denied') {
+        showError('Вхід через Google скасовано. Спробуйте ще раз або скористайтесь реєстрацією через email.');
+      } else if (err === 'google_not_configured') {
+        showError('Вхід через Google тимчасово недоступний. Скористайтесь email і паролем.');
+      } else if (err) {
+        showError('Помилка входу. Спробуйте ще раз.');
+      }
+      if (err) history.replaceState({}, '', '/');
+    })();
 
     async function submitLogin() {
       const email    = document.getElementById('loginEmail').value.trim();

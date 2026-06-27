@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { sendPush } = require('../services/push');
 
 const router = express.Router();
 
@@ -61,6 +62,44 @@ router.get('/vapid-public-key', (req, res) => {
   const key = process.env.VAPID_PUBLIC_KEY;
   if (!key) return res.status(404).json({ error: 'VAPID not configured' });
   res.json({ publicKey: key });
+});
+
+// GET /api/push/status — check subscription status for authenticated user
+router.get('/status', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT push_subscription IS NOT NULL AS has_subscription,
+              reminders_enabled, reminder_morning, reminder_evening, timezone
+       FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+    res.json(result.rows[0] || {});
+  } catch (err) {
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// POST /api/push/test — send immediate test push to the authenticated user
+router.post('/test', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT push_subscription FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    const sub = result.rows[0]?.push_subscription;
+    if (!sub) return res.status(400).json({ error: 'no_subscription' });
+
+    await sendPush(
+      sub,
+      '🔔 Тест сповіщення',
+      'Якщо ви це бачите — push-сповіщення працюють!',
+      { url: '/' }
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/push/test error:', err);
+    res.status(500).json({ error: 'push_failed' });
+  }
 });
 
 module.exports = router;
