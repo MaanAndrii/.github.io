@@ -77,7 +77,6 @@ app.use(express.static(clientDir, { extensions: ['html'], index: false }));
 // Root: landing for guests, SPA for authenticated users
 const jwt = require('jsonwebtoken');
 app.get('/', (req, res) => {
-  if (req.query.auth) return res.sendFile(path.join(clientDir, 'index.html'));
   const token = req.cookies?.token;
   if (token) {
     try {
