@@ -27,18 +27,30 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         [profile.id, email]
       );
 
-      if (!existing.rows.length) {
-        return done(null, false, { message: 'access_denied' });
+      if (existing.rows.length) {
+        // Existing user — update Google profile info
+        const result = await pool.query(
+          `UPDATE users SET
+             google_id = $1,
+             name = $2,
+             avatar_url = $3
+           WHERE id = $4
+           RETURNING *`,
+          [profile.id, profile.displayName, profile.photos?.[0]?.value, existing.rows[0].id]
+        );
+        return done(null, result.rows[0]);
       }
 
+      // New user — auto-register; first ever user gets admin rights
+      const countRes = await pool.query('SELECT COUNT(*) FROM users');
+      const isAdmin = parseInt(countRes.rows[0].count, 10) === 0;
+
       const result = await pool.query(
-        `UPDATE users SET
-           google_id = $1,
-           name = $2,
-           avatar_url = $3
-         WHERE id = $4
+        `INSERT INTO users
+           (email, name, avatar_url, google_id, subscription_tier, subscription_expires_at, is_admin, consented_at)
+         VALUES ($1, $2, $3, $4, 'premium', NOW() + interval '7 days', $5, NOW())
          RETURNING *`,
-        [profile.id, profile.displayName, profile.photos?.[0]?.value, existing.rows[0].id]
+        [email, profile.displayName, profile.photos?.[0]?.value, profile.id, isAdmin]
       );
 
       return done(null, result.rows[0]);

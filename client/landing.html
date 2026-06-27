@@ -273,8 +273,7 @@
       const params = new URLSearchParams(window.location.search);
       const err = params.get('error');
       if (err === 'access_denied') {
-        showError('Ваш Google-акаунт не зареєстрований у системі. Попросіть адміністратора додати ваш email — або зареєструйтесь через email і пароль нижче.');
-        switchTab('register');
+        showError('Вхід через Google скасовано. Спробуйте ще раз або скористайтесь реєстрацією через email.');
       } else if (err === 'google_not_configured') {
         showError('Вхід через Google тимчасово недоступний. Скористайтесь email і паролем.');
       } else if (err) {
