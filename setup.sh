@@ -196,6 +196,7 @@ Requires=postgresql.service
 Type=simple
 User=${SERVICE_USER}
 WorkingDirectory=${APP_DIR}
+EnvironmentFile=${APP_DIR}/.env
 ExecStart=/usr/bin/node server/index.js
 Restart=on-failure
 RestartSec=5

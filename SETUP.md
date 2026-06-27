@@ -15,7 +15,7 @@
 ```bash
 git clone https://github.com/MaanAndrii/blood.git
 cd blood
-git checkout claude/dreamy-cannon-p1768u
+git checkout claude/gallant-brown-xfe3zt
 sudo bash setup.sh
 ```
 
@@ -89,7 +89,7 @@ which chromium
 cd ~
 git clone https://github.com/MaanAndrii/blood.git
 cd blood
-git checkout claude/dreamy-cannon-p1768u
+git checkout claude/gallant-brown-xfe3zt
 ```
 
 ---
@@ -226,6 +226,7 @@ Requires=postgresql.service
 Type=simple
 User=maan
 WorkingDirectory=/home/maan/blood
+EnvironmentFile=/home/maan/blood/.env
 ExecStart=/usr/bin/node server/index.js
 Restart=on-failure
 RestartSec=5
@@ -352,7 +353,7 @@ curl -s http://localhost:3000/api/auth/me
 # Має повернути: {"error":"Unauthorized"}
 ```
 
-Відкрийте `https://ВАШ_ДОМЕН` — має з'явитись екран входу через Google.
+Відкрийте `https://ВАШ_ДОМЕН` — має з'явитись лендінг з формою входу/реєстрації.
 
 ---
 
@@ -370,7 +371,7 @@ curl -s http://localhost:3000/api/auth/me
 
 ```bash
 cd ~/blood
-git pull origin claude/dreamy-cannon-p1768u
+git pull origin claude/gallant-brown-xfe3zt
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
 sudo systemctl restart blood
 ```

@@ -1040,21 +1040,6 @@
     }
     input[type="date"]:focus { outline: none; border-color: var(--accent); }
 
-    /* ── RANGE INDICATOR ── */
-    .range-bar {
-      display: flex;
-      gap: 4px;
-      margin-top: 6px;
-    }
-    .range-bar span {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-    .range-ok { background: rgba(52,211,153,.15); color: var(--accent2); }
-    .range-high { background: rgba(251,146,60,.15); color: var(--warn); }
-    .range-low { background: rgba(129,140,248,.15); color: var(--evening); }
-
     /* ── CHART CONTAINER ── */
     .chart-wrap {
       position: relative;
@@ -1067,12 +1052,16 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,.6);
+      background: rgba(0,0,0,.75);
       z-index: 500;
       align-items: center;
       justify-content: center;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
     }
     .modal-overlay.open { display: flex; }
+    body:has(.modal-overlay.open) { overflow: hidden; pointer-events: none; }
+    body:has(.modal-overlay.open) .modal-overlay.open { pointer-events: auto; }
     .modal-box {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -1916,7 +1905,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '1.13';
+const APP_VERSION   = '2.01';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -2552,19 +2541,6 @@ function v(id) {
   const val = document.getElementById(id).value;
   return val === '' ? null : Number(val);
 }
-function avg(arr) {
-  const a = arr.filter(x => x != null);
-  if (!a.length) return null;
-  return Math.round(a.reduce((s,x) => s+x, 0) / a.length * 10) / 10;
-}
-
-function bpStatus(sys) {
-  if (sys == null) return '';
-  if (sys < 90) return '<span class="range-low">Низький</span>';
-  if (sys <= 120) return '<span class="range-ok">Норма</span>';
-  if (sys <= 139) return '<span class="range-high">Підвищений</span>';
-  return '<span class="range-high">Високий</span>';
-}
 
 // ── TOAST ───────────────────────────────────────────────────────────────────
 function showToast(msg, color) {
@@ -3155,15 +3131,6 @@ function bpBadgeRow(sys, dia) {
   return `<div style="min-height:18px;margin-top:3px">${inner}</div>`;
 }
 
-function armDiffWarning(sys_l, sys_r) {
-  if (sys_l == null || sys_r == null) return '';
-  const diff = Math.abs(sys_l - sys_r);
-  if (diff <= 10) return '';
-  return `<div class="history-row" style="grid-column:1/-1">
-    <span class="history-row-label">⚠️ Різниця рук</span>
-    <span class="history-row-val" style="color:#f97316;font-weight:600">${diff} мм рт.ст. — рекомендується консультація лікаря</span>
-  </div>`;
-}
 
 function _renderSummaryInGrid(dateStr, gridId) {
   const e = entries.find(x => String(x.date).slice(0,10) === dateStr);
