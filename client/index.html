@@ -1742,39 +1742,14 @@
 
 <!-- ══ PRIVACY POLICY MODAL ══ -->
 <div class="modal-overlay" id="privacyModal">
-  <div class="modal-box" style="max-width:480px;width:95%;max-height:88dvh;overflow-y:auto">
-    <div class="modal-title">🔒 Політика конфіденційності</div>
-    <div style="font-size:13px;line-height:1.6;color:var(--text)">
-
-      <p style="margin:0 0 10px"><strong>Хто обробляє дані</strong><br>
-      Цей застосунок є особистим інструментом відстеження здоров'я. Власник сервера є єдиним контролером ваших даних.</p>
-
-      <p style="margin:0 0 10px"><strong>Які дані збираються</strong><br>
-      Email, ім'я, дата народження, зріст, показники артеріального тиску, пульс, вага, нотатки до записів.</p>
-
-      <p style="margin:0 0 10px"><strong>Мета обробки</strong><br>
-      Виключно для відображення вашої особистої медичної статистики. Дані не передаються третім особам.</p>
-
-      <p style="margin:0 0 10px"><strong>Правова підстава (GDPR ст. 9(2)(a))</strong><br>
-      Обробка спеціальної категорії персональних даних (здоров'я) здійснюється на підставі вашої явної згоди, наданої при реєстрації.</p>
-
-      <p style="margin:0 0 10px"><strong>Зберігання</strong><br>
-      Дані зберігаються на приватному сервері. Шифрування транспорту — HTTPS. Дані зберігаються до видалення акаунту.</p>
-
-      <p style="margin:0 0 10px"><strong>Ваші права (GDPR)</strong></p>
-      <ul style="margin:0 0 10px;padding-left:18px">
-        <li><strong>Доступ</strong> — ви бачите всі свої дані в застосунку</li>
-        <li><strong>Портативність</strong> — експорт у JSON / CSV (Журнал → Експорт)</li>
-        <li><strong>Видалення</strong> — кнопка "Видалити акаунт" у профілі видаляє всі записи безповоротно</li>
-        <li><strong>Відкликання згоди</strong> — видалення акаунту відкликає згоду</li>
-      </ul>
-
-      <p style="margin:0;color:var(--muted);font-size:11px">
-        Питання щодо обробки даних направляйте власнику сервера.
-      </p>
+  <div class="modal-box" style="max-width:600px;width:95%;max-height:92dvh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div class="modal-title" style="margin:0">🔒 Політика конфіденційності</div>
+      <button onclick="closePrivacyModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0">✕</button>
     </div>
-    <div class="modal-actions" style="margin-top:20px">
-      <button class="btn-save" style="flex:1;margin-top:0" onclick="closePrivacyModal()">Зрозуміло</button>
+    <iframe src="/privacy" style="flex:1;border:none;min-height:0" title="Політика конфіденційності"></iframe>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0">
+      <button class="btn-save" style="width:100%;margin:0" onclick="closePrivacyModal()">Зрозуміло</button>
     </div>
   </div>
 </div>
