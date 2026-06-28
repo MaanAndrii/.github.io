@@ -1307,6 +1307,11 @@
       <div id="extStatsBody"></div>
     </div>
 
+    <div class="stat-card" id="trendStats">
+      <div class="stat-title">📈 Тренди</div>
+      <div id="trendStatsBody"></div>
+    </div>
+
     <div class="stat-card" id="corrStats">
       <div class="stat-title" title="r Пірсона: від −1 (обернена залежність) до +1 (пряма залежність). Значення ближче до 0 — зв'язок відсутній.">🔗 Кореляційний аналіз (r Пірсона) ℹ️</div>
       <div id="corrStatsBody"></div>
@@ -1759,7 +1764,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.22';
+const APP_VERSION   = '2.23';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -2841,6 +2846,19 @@ function statMinMax(arr) {
   return { min: Math.min(...nums), max: Math.max(...nums) };
 }
 
+function linearSlope(arr) {
+  const pts = arr.map((v, i) => [i, v]).filter(([, y]) => y != null);
+  if (pts.length < 2) return null;
+  const n = pts.length;
+  const sx = pts.reduce((s, [x]) => s + x, 0);
+  const sy = pts.reduce((s, [, y]) => s + y, 0);
+  const sxy = pts.reduce((s, [x, y]) => s + x * y, 0);
+  const sx2 = pts.reduce((s, [x]) => s + x * x, 0);
+  const den = n * sx2 - sx * sx;
+  if (den === 0) return null;
+  return (n * sxy - sx * sy) / den;
+}
+
 function pearsonR(xArr, yArr) {
   const pairs = xArr.map((x, i) => [x, yArr[i]]).filter(([x, y]) => x != null && y != null);
   if (pairs.length < 3) return null;
@@ -3580,7 +3598,8 @@ function renderInsights(data) {
              + (e.evening.sys_l != null && e.evening.sys_r != null ? 1 : 0);
   }, 0);
   const armLabel = totalMeasures ? `${armDiffCount} з ${totalMeasures}` : '—';
-  const armNote = armDiffCount === 0 ? 'Різниця в межах норми' : armDiffCount <= 2 ? 'Кілька вимірів потребують уваги' : 'Часта різниця >10 мм — порадьтеся з лікарем';
+  const armIsWarn = armDiffCount > 2;
+  const armNote = armDiffCount === 0 ? 'Різниця в межах норми' : armDiffCount <= 2 ? 'Кілька вимірів потребують уваги' : '⚠️ Порадьтеся з лікарем';
 
   // 4. Average pulse
   const allPulse = [...data.map(e => e.morning.pulse), ...data.map(e => e.evening.pulse)];
@@ -3601,10 +3620,10 @@ function renderInsights(data) {
       <div class="insight-value">${mveLabel}</div>
       <div class="insight-note">${mveNote}</div>
     </div>
-    <div class="insight-card">
+    <div class="insight-card" style="${armIsWarn ? 'border-color:#f97316;background:rgba(249,115,22,.1)' : ''}">
       <div class="insight-label">Різниця рук >10 мм</div>
-      <div class="insight-value">${armLabel}</div>
-      <div class="insight-note">${armNote}</div>
+      <div class="insight-value" style="${armIsWarn ? 'color:#f97316' : ''}">${armLabel}</div>
+      <div class="insight-note" style="${armIsWarn ? 'color:#f97316;font-weight:600' : ''}">${armNote}</div>
     </div>
     <div class="insight-card">
       <div class="insight-label">Середній пульс</div>
@@ -3924,6 +3943,36 @@ function renderCharts() {
       </div>`;
     })();
 
+    // — Trends (linear regression over selected period) —
+    (function renderTrends() {
+      const avgSysArr  = data.map(e => { const v = [e.morning.sys_l, e.morning.sys_r, e.evening.sys_l, e.evening.sys_r].filter(x=>x!=null); return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : null; });
+      const avgDiaArr  = data.map(e => { const v = [e.morning.dia_l, e.morning.dia_r, e.evening.dia_l, e.evening.dia_r].filter(x=>x!=null); return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : null; });
+      const pulseArr   = data.map(e => { const v = [e.morning.pulse, e.evening.pulse].filter(x=>x!=null); return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : null; });
+      const weightArr  = data.map(e => e.weight != null ? parseFloat(e.weight) : null);
+
+      function trendRow(label, arr, unit, threshold, decimals) {
+        const slope = linearSlope(arr);
+        const pts = arr.filter(x => x != null).length;
+        if (slope == null || pts < 2) return `<div class="stat-row"><span>${label}</span><span style="color:var(--muted)">—</span></div>`;
+        const total = slope * (arr.length - 1);
+        const abs = Math.abs(total);
+        if (abs < threshold) return `<div class="stat-row"><span>${label}</span><span style="color:var(--muted)">без змін</span></div>`;
+        const val = decimals ? total.toFixed(decimals) : Math.round(total);
+        const absVal = decimals ? abs.toFixed(decimals) : Math.round(abs);
+        const down = total < 0;
+        const color = down ? '#22c55e' : '#ef4444';
+        return `<div class="stat-row"><span>${label}</span><span style="color:${color};font-weight:600">${down ? '↓' : '↑'} ${absVal} ${unit}</span></div>`;
+      }
+
+      const el = document.getElementById('trendStatsBody');
+      el.innerHTML =
+        trendRow('Систолічний', avgSysArr,  'мм',   2,   0) +
+        trendRow('Діастолічний', avgDiaArr,  'мм',   2,   0) +
+        trendRow('Пульс',        pulseArr,   'уд/хв', 2,  0) +
+        trendRow('Вага',         weightArr,  'кг',    0.3, 1);
+      document.getElementById('trendStats').style.display = '';
+    })();
+
     // — Correlation analysis (requires N≥10 for statistical reliability) —
     if (data.length >= 10) {
       const sysByDay = data.map(e => e.morning.sys_l ?? e.morning.sys_r);
@@ -3951,6 +4000,7 @@ function renderCharts() {
     document.getElementById('extStats').style.display = '';
   } else {
     document.getElementById('extStats').style.display = 'none';
+    document.getElementById('trendStats').style.display = 'none';
     document.getElementById('corrStats').style.display = 'none';
   }
 }
