@@ -1,5 +1,5 @@
-const CACHE = 'health-v22';
-const API_CACHE = 'health-api-v22';
+const CACHE = 'health-v23';
+const API_CACHE = 'health-api-v23';
 
 const STATIC_SHELL = [
   '/manifest.json',
@@ -62,9 +62,9 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // HTML navigation — network only, never cache (content depends on auth state)
+  // HTML navigation — bypass HTTP cache (content is auth-dependent)
   if (request.mode === 'navigate') {
-    e.respondWith(fetch(request));
+    e.respondWith(fetch(request, { cache: 'no-store' }));
     return;
   }
 

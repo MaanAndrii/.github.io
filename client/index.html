@@ -1686,7 +1686,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.08';
+const APP_VERSION   = '2.09';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1784,7 +1784,7 @@ async function logout() {
   } catch {}
   localStorage.removeItem(DB_KEY);
   localStorage.removeItem(REMINDER_KEY);
-  window.location.reload();
+  window.location.href = '/';
 }
 
 
