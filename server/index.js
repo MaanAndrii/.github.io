@@ -78,8 +78,10 @@ const clientDir = path.join(__dirname, '..', 'client');
 app.use(express.static(clientDir, { extensions: ['html'], index: false }));
 
 // Root: landing for guests, SPA for authenticated users
+// Must never be cached — response depends on auth cookie
 const jwt = require('jsonwebtoken');
 app.get('/', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   const token = req.cookies?.token;
   if (token) {
     try {
