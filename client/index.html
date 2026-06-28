@@ -1290,6 +1290,11 @@
       </div>
     </div>
 
+    <div class="stat-card" id="mapCard">
+      <div class="stat-title">💓 Середній артеріальний тиск (MAP)</div>
+      <div id="mapCardBody"></div>
+    </div>
+
     <div class="stat-card" id="avgStats">
       <div class="stat-title">📊 Середні значення</div>
       <div id="avgStatsBody"></div>
@@ -1304,6 +1309,8 @@
       <div class="stat-title" title="r Пірсона: від −1 (обернена залежність) до +1 (пряма залежність). Значення ближче до 0 — зв'язок відсутній.">🔗 Кореляційний аналіз (r Пірсона) ℹ️</div>
       <div id="corrStatsBody"></div>
     </div>
+
+    <div id="whoEshCard" style="margin-bottom:10px"></div>
 
     <div style="font-size:11px;color:var(--muted);text-align:center;padding:4px 0 14px;line-height:1.5">
       Інсайти та аналіз — довідково. Це не медичний діагноз — зверніться до лікаря.
@@ -1752,7 +1759,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.19';
+const APP_VERSION   = '2.20';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3752,7 +3759,7 @@ function renderCharts() {
           </div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-          Зріст: ${h} см &nbsp;·&nbsp; Вага: ${w} кг &nbsp;·&nbsp; Рекомендована вага: ${_wMin ?? '—'}–${_wMax ?? '—'} кг
+          Зріст: ${h} см &nbsp;·&nbsp; Вага: ${w} кг &nbsp;·&nbsp; Середня за період: ${avgOf(data.map(e=>e.weight)) ?? '—'} кг &nbsp;·&nbsp; Рекомендована: ${_wMin ?? '—'}–${_wMax ?? '—'} кг
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           ${bmiRanges.map(([range, label, color]) => {
@@ -3803,6 +3810,30 @@ function renderCharts() {
   })();
 
   function avgOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.round(a.reduce((s,x)=>s+x,0)/a.length) : null; }
+
+  // ── MAP card ──────────────────────────────────────────────────────────────
+  (function renderMapCard() {
+    const allSys = [], allDia = [];
+    data.forEach(e => {
+      [e.morning.sys_l, e.morning.sys_r, e.evening.sys_l, e.evening.sys_r].forEach(v => { if (v != null) allSys.push(v); });
+      [e.morning.dia_l, e.morning.dia_r, e.evening.dia_l, e.evening.dia_r].forEach(v => { if (v != null) allDia.push(v); });
+    });
+    const avgS = avgOf(allSys), avgD = avgOf(allDia);
+    const el = document.getElementById('mapCardBody');
+    if (avgS == null || avgD == null) {
+      el.innerHTML = `<div style="color:var(--muted);font-size:12px">Немає даних</div>`;
+      return;
+    }
+    const map = Math.round((avgS + 2 * avgD) / 3);
+    let mapLabel, mapColor;
+    if      (map < 70)  { mapLabel = 'Знижений';            mapColor = '#60a5fa'; }
+    else if (map <= 100) { mapLabel = 'Норма';              mapColor = '#22c55e'; }
+    else if (map <= 110) { mapLabel = 'Підвищений';         mapColor = '#f97316'; }
+    else                 { mapLabel = 'Значно підвищений';  mapColor = '#ef4444'; }
+    el.innerHTML = `
+      <div style="font-size:26px;font-weight:700;color:${mapColor}">${map}<span style="font-size:14px;font-weight:400;margin-left:5px">мм рт.ст.</span></div>
+      <div style="font-size:13px;color:${mapColor};margin-top:4px">${mapLabel}</div>`;
+  })();
   const avgStats = [
     ['Сист. ранок — ліва', avgOf(data.map(e=>e.morning.sys_l)), 'мм', 'val-sys'],
     ['Сист. ранок — права', avgOf(data.map(e=>e.morning.sys_r)), 'мм', 'val-sys'],
@@ -3814,7 +3845,6 @@ function renderCharts() {
     ['Діаст. вечір — права', avgOf(data.map(e=>e.evening.dia_r)), 'мм', 'val-dia'],
     ['Пульс ранок', avgOf(data.map(e=>e.morning.pulse)), 'уд/хв', 'val-pulse'],
     ['Пульс вечір', avgOf(data.map(e=>e.evening.pulse)), 'уд/хв', 'val-pulse'],
-    ['Вага', avgOf(data.map(e=>e.weight)), 'кг', 'val-weight'],
   ];
   document.getElementById('avgStatsBody').innerHTML = avgStats.map(([label, value, unit, cls]) =>
     `<div class="stat-row">
@@ -3837,16 +3867,10 @@ function renderCharts() {
     const ePulse = data.map(e => e.evening.pulse);
     const wts    = data.map(e => e.weight);
 
-    function mmStr(arr) { const m = statMinMax(arr); return m ? `${m.min} / ${m.max}` : '—'; }
-
     const avgMSys = avgOf(mSysL.map((v,i) => v ?? mSysR[i]));
     const avgESys = avgOf(eSysL.map((v,i) => v ?? eSysR[i]));
     const dailyIdx = (avgMSys != null && avgESys != null && avgMSys > 0)
       ? Math.round((avgMSys - avgESys) / avgMSys * 100 * 10) / 10 : null;
-
-    const avgSys = avgOf(mSysL) ?? avgOf(mSysR);
-    const avgDia = avgOf(mDiaL) ?? avgOf(mDiaR);
-    const cat = bpCategory(avgSys, avgDia);
 
     const extRows = [
       ['Медіана Сист. ранок Л / П', `${statMedian(mSysL) ?? '—'} / ${statMedian(mSysR) ?? '—'}`, 'мм'],
@@ -3855,15 +3879,25 @@ function renderCharts() {
       ['Медіана Діаст. вечір Л / П', `${statMedian(eDiaL) ?? '—'} / ${statMedian(eDiaR) ?? '—'}`, 'мм'],
       ['Ст. відхилення Сист. ранок Л', statStdDev(mSysL), 'мм'],
       ['Ст. відхилення Сист. вечір Л', statStdDev(eSysL), 'мм'],
-      ['Мін/Макс Сист. ранок Л', mmStr(mSysL), ''],
-      ['Мін/Макс Сист. вечір Л', mmStr(eSysL), ''],
-      ['Мін/Макс пульс', mmStr([...mPulse, ...ePulse]), 'уд/хв'],
       ['Денний індекс (ранок−вечір)/ранок', dailyIdx != null ? dailyIdx + ' %' : '—', ''],
-      ['WHO/ESH 2023 (серед. ранок)', cat ? cat.label : '—', ''],
     ];
     document.getElementById('extStatsBody').innerHTML = extRows.map(([label, value, unit]) =>
       `<div class="stat-row"><span>${label}</span><span>${value != null ? value + (unit ? ' ' + unit : '') : '—'}</span></div>`
     ).join('');
+
+    // — WHO/ESH 2023 card —
+    (function renderWhoEshCard() {
+      const allSys = [], allDia = [];
+      data.forEach(e => {
+        [e.morning.sys_l, e.morning.sys_r, e.evening.sys_l, e.evening.sys_r].forEach(v => { if (v != null) allSys.push(v); });
+        [e.morning.dia_l, e.morning.dia_r, e.evening.dia_l, e.evening.dia_r].forEach(v => { if (v != null) allDia.push(v); });
+      });
+      const cat = bpCategory(avgOf(allSys), avgOf(allDia));
+      const el = document.getElementById('whoEshCard');
+      if (!cat) { el.style.display = 'none'; return; }
+      el.style.display = '';
+      el.innerHTML = `<div style="padding:11px 16px;border-left:4px solid ${cat.color};background:color-mix(in srgb,${cat.color} 12%,transparent);border-radius:10px;font-size:14px;font-weight:600;color:${cat.color}">WHO/ESH 2023: ${cat.label}</div>`;
+    })();
 
     // — Correlation analysis (requires N≥10 for statistical reliability) —
     if (data.length >= 10) {
