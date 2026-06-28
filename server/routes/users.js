@@ -34,7 +34,7 @@ router.put('/me', requireAuth, async (req, res) => {
     if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
     vals.push(req.user.id);
     const result = await pool.query(
-      `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING id, name, date_of_birth, email, avatar_url, is_admin, height_cm`,
+      `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING id, name, date_of_birth, email, avatar_url, height_cm`,
       vals
     );
     res.json(result.rows[0]);
@@ -48,7 +48,7 @@ router.put('/me', requireAuth, async (req, res) => {
 router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT u.id, u.email, u.name, u.avatar_url, u.is_admin,
+      `SELECT u.id, u.email, u.name, u.avatar_url,
               u.subscription_tier, u.subscription_expires_at,
               u.date_of_birth, u.created_at,
               COUNT(e.id)::INT AS entry_count,
@@ -73,8 +73,8 @@ router.post('/invite', requireAuth, requireAdmin, async (req, res) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
 
     const result = await pool.query(
-      `INSERT INTO users (email, name, is_admin)
-       VALUES ($1, $2, FALSE)
+      `INSERT INTO users (email, name)
+       VALUES ($1, $2)
        ON CONFLICT (email) DO UPDATE SET name = COALESCE(EXCLUDED.name, users.name)
        RETURNING *`,
       [email.toLowerCase().trim(), name || null]
@@ -99,8 +99,8 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
 
       const result = await pool.query(
-        `INSERT INTO users (email, is_admin)
-         VALUES ($1, FALSE)
+        `INSERT INTO users (email)
+         VALUES ($1)
          ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
          RETURNING *`,
         [email.toLowerCase().trim()]
@@ -111,23 +111,34 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     const userId = parseInt(id, 10);
     if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user id' });
 
-    const { date_of_birth, is_admin, email, subscription_tier, months } = req.body;
+    const { date_of_birth, email, subscription_tier, months } = req.body;
+
+    // Prevent demoting the last admin
+    if (subscription_tier && subscription_tier !== 'admin') {
+      const targetRes = await pool.query('SELECT subscription_tier FROM users WHERE id = $1', [userId]);
+      if (targetRes.rows[0]?.subscription_tier === 'admin') {
+        const adminCount = await pool.query(`SELECT COUNT(*) FROM users WHERE subscription_tier = 'admin'`);
+        if (parseInt(adminCount.rows[0].count, 10) <= 1) {
+          return res.status(400).json({ error: 'Неможливо понизити останнього адміна' });
+        }
+      }
+    }
 
     // Build dynamic update
     const sets = [];
     const vals = [];
     let idx = 1;
 
-    if (date_of_birth !== undefined)    { sets.push(`date_of_birth = $${idx++}`);    vals.push(date_of_birth || null); }
-    if (is_admin !== undefined)          { sets.push(`is_admin = $${idx++}`);          vals.push(Boolean(is_admin)); }
+    if (date_of_birth !== undefined) { sets.push(`date_of_birth = $${idx++}`); vals.push(date_of_birth || null); }
     if (email !== undefined) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
       sets.push(`email = $${idx++}`);
       vals.push(email.toLowerCase().trim());
     }
     if (subscription_tier !== undefined) {
-      if (!['demo', 'premium'].includes(subscription_tier)) {
-        return res.status(400).json({ error: 'subscription_tier must be demo or premium' });
+      const validTiers = ['admin', 'demo', 'free', 'premium'];
+      if (!validTiers.includes(subscription_tier)) {
+        return res.status(400).json({ error: 'subscription_tier must be admin, demo, free, or premium' });
       }
       sets.push(`subscription_tier = $${idx++}`);
       vals.push(subscription_tier);
@@ -136,7 +147,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         exp.setMonth(exp.getMonth() + parseInt(months, 10));
         sets.push(`subscription_expires_at = $${idx++}`);
         vals.push(exp.toISOString());
-      } else if (subscription_tier === 'demo') {
+      } else {
         sets.push(`subscription_expires_at = $${idx++}`);
         vals.push(null);
       }
@@ -159,29 +170,33 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/users/:id/reset-password — admin only: set a new password for any user
-router.post('/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
+// POST /api/users/me/change-password — authenticated user changes their own password
+router.post('/me/change-password', requireAuth, async (req, res) => {
   try {
-    const userId = parseInt(req.params.id, 10);
-    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user id' });
+    const bcrypt = require('bcryptjs');
+    const { current_password, new_password } = req.body ?? {};
 
-    const { password } = req.body;
-    if (!password || password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (!new_password || new_password.length < 8) {
+      return res.status(400).json({ error: 'Новий пароль має містити мінімум 8 символів' });
     }
 
-    const bcrypt = require('bcryptjs');
-    const hash = await bcrypt.hash(password, 10);
+    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    const user = result.rows[0];
 
-    const result = await pool.query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id',
-      [hash, userId]
-    );
-    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    if (user.password_hash) {
+      if (!current_password) {
+        return res.status(400).json({ error: 'Введіть поточний пароль' });
+      }
+      const valid = await bcrypt.compare(current_password, user.password_hash);
+      if (!valid) return res.status(401).json({ error: 'Невірний поточний пароль' });
+    }
+
+    const hash = await bcrypt.hash(new_password, 10);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('POST /api/users/:id/reset-password error:', err);
+    console.error('POST /api/users/me/change-password error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -189,6 +204,13 @@ router.post('/:id/reset-password', requireAuth, requireAdmin, async (req, res) =
 // DELETE /api/users/me — delete own account (GDPR right to erasure)
 router.delete('/me', requireAuth, async (req, res) => {
   try {
+    const selfRes = await pool.query('SELECT subscription_tier FROM users WHERE id = $1', [req.user.id]);
+    if (selfRes.rows[0]?.subscription_tier === 'admin') {
+      const adminCount = await pool.query(`SELECT COUNT(*) FROM users WHERE subscription_tier = 'admin'`);
+      if (parseInt(adminCount.rows[0].count, 10) <= 1) {
+        return res.status(400).json({ error: 'Останній адмін не може видалити свій акаунт' });
+      }
+    }
     await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
     res.clearCookie('token', {
       httpOnly: true,
@@ -210,6 +232,14 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 
     if (userId === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete yourself' });
+    }
+
+    const targetRes = await pool.query('SELECT subscription_tier FROM users WHERE id = $1', [userId]);
+    if (targetRes.rows[0]?.subscription_tier === 'admin') {
+      const adminCount = await pool.query(`SELECT COUNT(*) FROM users WHERE subscription_tier = 'admin'`);
+      if (parseInt(adminCount.rows[0].count, 10) <= 1) {
+        return res.status(400).json({ error: 'Неможливо видалити останнього адміна' });
+      }
     }
 
     const result = await pool.query(

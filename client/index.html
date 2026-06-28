@@ -1464,6 +1464,18 @@
     </div>
 
     <hr style="border:none;border-top:1px solid var(--border);margin:16px 0 14px" />
+
+    <!-- Change / set password -->
+    <div id="changePwSection" style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px" id="changePwTitle">Змінити пароль</div>
+      <div id="changePwCurrentWrap" style="margin-bottom:10px">
+        <input type="password" id="changePwCurrent" class="profile-input" placeholder="Поточний пароль" autocomplete="current-password" />
+      </div>
+      <input type="password" id="changePwNew" class="profile-input" placeholder="Новий пароль (мін. 8 символів)" autocomplete="new-password" style="margin-bottom:8px" />
+      <button class="btn-save" style="width:100%;margin-top:0" id="btnChangePw" onclick="changePassword()">Зберегти новий пароль</button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0 14px" />
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
       Зона небезпеки · <a href="#" onclick="openPrivacyModal();return false" style="color:var(--accent);text-decoration:none">Політика конфіденційності</a>
     </div>
@@ -1717,7 +1729,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.11';
+const APP_VERSION   = '2.13';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1859,7 +1871,7 @@ async function initApp() {
     }
     currentUser = await r.json();
     renderUserChip();
-    applyDemoRestrictions();
+    applyTierRestrictions();
 
     await fetchEntries();
     showApp();
@@ -1976,7 +1988,7 @@ function renderUserChip() {
   };
   menu.appendChild(aboutItem);
 
-  if (currentUser.is_admin) {
+  if (currentUser.effective_tier === 'admin') {
     const adminItem = document.createElement('div');
     adminItem.className = 'user-menu-item';
     adminItem.textContent = '⚙️ Адмін-панель';
@@ -2027,22 +2039,27 @@ function openProfileModal() {
   // Tier info block
   const tierEl = document.getElementById('profileTierInfo');
   if (tierEl) {
-    const effective = currentUser.effective_tier || currentUser.subscription_tier || 'premium';
+    const effective = currentUser.effective_tier || 'free';
     const exp = currentUser.subscription_expires_at ? new Date(currentUser.subscription_expires_at) : null;
     const daysLeft = exp ? Math.ceil((exp - new Date()) / 86400000) : null;
-    const isTrial = effective === 'premium' && exp && daysLeft > 0
-      && currentUser.created_at
-      && Math.round((exp - new Date(currentUser.created_at)) / 86400000) <= 8;
     let label, color, detail;
-    if (effective === 'demo') {
-      label = 'Demo'; color = 'var(--muted)';
-      detail = 'Обмежений доступ — без Експорту, журнал 30 днів';
-    } else if (isTrial) {
-      label = 'Trial'; color = 'var(--accent2)';
-      detail = `Пробний повний доступ · закінчується через ${daysLeft} дн. (${exp.toLocaleDateString('uk-UA',{day:'2-digit',month:'long'})})`;
-    } else {
+    if (effective === 'admin') {
+      label = 'Admin'; color = '#e74c3c';
+      detail = 'Повний доступ · адміністратор системи';
+    } else if (effective === 'demo') {
+      const created = currentUser.created_at ? new Date(currentUser.created_at) : null;
+      const demoExpiry = created ? new Date(created.getTime() + 7 * 86400000) : null;
+      const demoDaysLeft = demoExpiry ? Math.ceil((demoExpiry - new Date()) / 86400000) : null;
+      label = 'Demo'; color = 'var(--accent2)';
+      detail = demoDaysLeft && demoDaysLeft > 0
+        ? `Повний доступ · ще ${demoDaysLeft} дн. (до ${demoExpiry.toLocaleDateString('uk-UA',{day:'2-digit',month:'long'})})`
+        : 'Повний доступ · демо-версія';
+    } else if (effective === 'premium') {
       label = 'Premium'; color = 'var(--accent)';
       detail = exp ? `Повний доступ · до ${exp.toLocaleDateString('uk-UA',{day:'2-digit',month:'long',year:'numeric'})}` : 'Повний доступ · безстроково';
+    } else {
+      label = 'Free'; color = 'var(--muted)';
+      detail = 'Обмежений доступ · історія 30 днів, без Експорту';
     }
     tierEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border)">
       <span style="font-weight:700;font-size:12px;color:${color}">${label}</span>
@@ -2057,12 +2074,44 @@ function openProfileModal() {
   heightInput.value = currentUser.height_cm || '';
   _updateProfileBmi();
   heightInput.addEventListener('input', _updateProfileBmi);
+
+  // Password section: show "Поточний пароль" only if user already has one
+  const hasPw = currentUser.has_password;
+  document.getElementById('changePwTitle').textContent = hasPw ? 'Змінити пароль' : 'Встановити пароль';
+  document.getElementById('changePwCurrentWrap').style.display = hasPw ? '' : 'none';
+  document.getElementById('changePwCurrent').value = '';
+  document.getElementById('changePwNew').value = '';
+
   document.getElementById('profileModal').classList.add('open');
 }
 
 function closeProfileModal() {
   document.getElementById('profileModal').classList.remove('open');
   document.getElementById('profileHeight').removeEventListener('input', _updateProfileBmi);
+}
+
+async function changePassword() {
+  const current_password = document.getElementById('changePwCurrent').value;
+  const new_password     = document.getElementById('changePwNew').value;
+  if (new_password.length < 8) { showToast('⚠️ Пароль має містити мінімум 8 символів', 'var(--warn)'); return; }
+  const btn = document.getElementById('btnChangePw');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/users/me/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: current_password || undefined, new_password }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { showToast('⚠️ ' + (data.error || 'Помилка'), 'var(--warn)'); return; }
+    document.getElementById('changePwCurrent').value = '';
+    document.getElementById('changePwNew').value = '';
+    currentUser.has_password = true;
+    document.getElementById('changePwTitle').textContent = 'Змінити пароль';
+    document.getElementById('changePwCurrentWrap').style.display = '';
+    showToast('✅ Пароль змінено');
+  } catch { showToast('⚠️ Помилка мережі', 'var(--warn)'); }
+  finally { btn.disabled = false; }
 }
 
 async function saveProfile() {
@@ -2099,15 +2148,15 @@ document.addEventListener('click', (e) => {
   }
 });
 
-function applyDemoRestrictions() {
-  if (!currentUser || currentUser.effective_tier !== 'demo') return;
-  const DEMO_MSG = 'Експорт недоступний у демо-версії';
+function applyTierRestrictions() {
+  if (!currentUser || currentUser.effective_tier !== 'free') return;
+  const FREE_MSG = 'Недоступно у безкоштовній версії';
   document.querySelectorAll('#page-export .export-card[onclick]').forEach(card => {
     card.removeAttribute('onclick');
     card.style.opacity = '0.4';
     card.style.cursor = 'not-allowed';
     card.style.filter = 'grayscale(0.6)';
-    card.addEventListener('click', () => showToast('🔒 ' + DEMO_MSG, 'var(--muted)'));
+    card.addEventListener('click', () => showToast('🔒 ' + FREE_MSG, 'var(--muted)'));
   });
   const importLabel = document.querySelector('#page-export label.btn-outline');
   if (importLabel) {
@@ -2118,7 +2167,7 @@ function applyDemoRestrictions() {
     if (inp) inp.disabled = true;
     importLabel.addEventListener('click', e => {
       e.preventDefault();
-      showToast('🔒 ' + DEMO_MSG, 'var(--muted)');
+      showToast('🔒 ' + FREE_MSG, 'var(--muted)');
     });
   }
 }
