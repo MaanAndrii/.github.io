@@ -1192,7 +1192,7 @@
 <nav>
   <div class="tab active" data-page="home"    onclick="showPage('home')"><span class="tab-icon">🏠</span>Головна</div>
   <div class="tab"        data-page="history" onclick="showPage('history')"><span class="tab-icon">📋</span>Журнал</div>
-  <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Графіки</div>
+  <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Статистика</div>
   <div class="tab"        data-page="export"  onclick="showPage('export')"><span class="tab-icon">🗄️</span>Дані</div>
 </nav>
 
@@ -1228,20 +1228,24 @@
 
   <!-- ══ HISTORY PAGE ══ -->
   <div class="page" id="page-history">
-    <div class="filter-row">
-      <div class="filter-chip active" onclick="setFilter(this,'all')">Всі</div>
-      <div class="filter-chip" onclick="setFilter(this,'7')">7 днів</div>
-      <div class="filter-chip" onclick="setFilter(this,'30')">30 днів</div>
-      <div class="filter-chip" onclick="setFilter(this,'90')">3 місяці</div>
+    <div style="display:flex;gap:8px;align-items:center;padding:4px 0 8px">
+      <input type="date" id="historyDateFrom" onchange="journalPage=0;renderHistory()"
+        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:6px 10px;font-family:var(--font);outline:none">
+      <span style="font-size:12px;color:var(--muted);flex-shrink:0">—</span>
+      <input type="date" id="historyDateTo" onchange="journalPage=0;renderHistory()"
+        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:6px 10px;font-family:var(--font);outline:none">
+      <button onclick="document.getElementById('historyDateFrom').value='';document.getElementById('historyDateTo').value='';journalPage=0;renderHistory()"
+        style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;padding:6px 10px;cursor:pointer;flex-shrink:0;font-family:var(--font)">✕</button>
     </div>
     <div id="historyList"></div>
+    <div id="journalPagination" style="display:flex;justify-content:center;align-items:center;gap:8px;padding:12px 0"></div>
   </div>
 
   <!-- ══ STATS PAGE ══ -->
   <div class="page" id="page-stats">
     <div class="filter-row">
-      <div class="filter-chip active" onclick="setStatsFilter(this,'7')">7 днів</div>
-      <div class="filter-chip" onclick="setStatsFilter(this,'14')">14 днів</div>
+      <div class="filter-chip active" onclick="setStatsFilter(this,'10')">10 днів</div>
+      <div class="filter-chip" onclick="setStatsFilter(this,'15')">15 днів</div>
       <div class="filter-chip" onclick="setStatsFilter(this,'30')">30 днів</div>
     </div>
 
@@ -1273,6 +1277,17 @@
     <div class="stat-card" id="bmiCard">
       <div class="stat-title">📊 Індекс маси тіла (ІМТ)</div>
       <div id="bmiCardBody"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="stat-card" id="minBpCard" style="margin:0">
+        <div class="stat-title">⬇️ Мінімальний тиск</div>
+        <div id="minBpCardBody"></div>
+      </div>
+      <div class="stat-card" id="maxBpCard" style="margin:0">
+        <div class="stat-title">⬆️ Максимальний тиск</div>
+        <div id="maxBpCardBody"></div>
+      </div>
     </div>
 
     <div class="stat-card" id="avgStats">
@@ -1737,7 +1752,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.16';
+const APP_VERSION   = '2.17';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1749,8 +1764,9 @@ const HISTORY_MONTHS   = 3;    // max months shown in charts by default
 let entries = [];
 let currentUser = null;
 let isDataStale = false;
-let historyFilter = 'all';
-let statsFilter = '7';
+let journalPage = 0;
+const JOURNAL_PER_PAGE = 10;
+let statsFilter = '10';
 let charts = {};
 let editingDate = null;
 let reminderTimers = [];
@@ -3125,19 +3141,23 @@ function openSmartEntryModal() {
 }
 
 // ── HISTORY ─────────────────────────────────────────────────────────────────
-function setFilter(el, val) {
-  document.querySelectorAll('.filter-row .filter-chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  historyFilter = val;
-  renderHistory();
-}
-
 function filterEntries(days) {
   if (days === 'all') return entries;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - Number(days));
   const cutStr = cutoff.toISOString().slice(0,10);
   return entries.filter(e => String(e.date).slice(0,10) >= cutStr);
+}
+
+function _journalFiltered() {
+  const from = document.getElementById('historyDateFrom')?.value || '';
+  const to   = document.getElementById('historyDateTo')?.value   || '';
+  return entries.filter(e => {
+    const d = String(e.date).slice(0,10);
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  });
 }
 
 function _hcolBpRow(label, sys, dia, color) {
@@ -3166,11 +3186,28 @@ function _hcolArmDiff(sys_l, sys_r) {
 
 function renderHistory() {
   const list = document.getElementById('historyList');
-  const data = filterEntries(historyFilter);
-  if (!data.length) {
+  const pag  = document.getElementById('journalPagination');
+  const all  = _journalFiltered();
+  const total = all.length;
+  const pages = Math.max(1, Math.ceil(total / JOURNAL_PER_PAGE));
+  if (journalPage >= pages) journalPage = pages - 1;
+  const data = all.slice(journalPage * JOURNAL_PER_PAGE, (journalPage + 1) * JOURNAL_PER_PAGE);
+
+  if (!total) {
     list.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Записів поки немає.<br/>Додайте перший вимір!</p></div>`;
+    pag.innerHTML = '';
     return;
   }
+
+  // Pagination controls
+  const btnStyle = (disabled) =>
+    `style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:${disabled?'var(--muted)':'var(--text)'};font-size:13px;cursor:${disabled?'default':'pointer'};font-family:var(--font)"`;
+  pag.innerHTML = `
+    <button ${btnStyle(journalPage===0)} ${journalPage===0?'disabled':''} onclick="journalPage--;renderHistory()">‹</button>
+    <span style="font-size:12px;color:var(--muted)">${journalPage+1} / ${pages} &nbsp;(${total})</span>
+    <button ${btnStyle(journalPage>=pages-1)} ${journalPage>=pages-1?'disabled':''} onclick="journalPage++;renderHistory()">›</button>
+  `;
+
   list.innerHTML = data.map(e => {
     const m = e.morning, ev = e.evening;
     const dateStr = String(e.date).slice(0,10);
@@ -3220,6 +3257,7 @@ async function deleteEntry(date) {
   // Only update local state after server confirms
   entries = entries.filter(e => String(e.date).slice(0,10) !== date);
   saveLocalData(entries);
+  journalPage = 0;
   renderHistory();
   renderTodaySummary();
   showToast('🗑 Запис видалено', 'var(--warn)');
@@ -3726,6 +3764,37 @@ function renderCharts() {
           }).join('')}
         </table>`;
     }
+  })();
+
+  // ── Min/Max BP cards ─────────────────────────────────────────────────────
+  (function renderMinMaxCards() {
+    function minOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.min(...a) : null; }
+    function maxOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.max(...a) : null; }
+    function cardRow(label, val, unit) {
+      return val != null
+        ? `<div class="stat-row"><span>${label}</span><span>${val} ${unit}</span></div>`
+        : '';
+    }
+    const sysSrc = data.map(e => e.morning.sys_l ?? e.morning.sys_r);
+    const diaSrc = data.map(e => e.morning.dia_l ?? e.morning.dia_r);
+    const eSys   = data.map(e => e.evening.sys_l ?? e.evening.sys_r);
+    const eDia   = data.map(e => e.evening.dia_l ?? e.evening.dia_r);
+    const pulse  = data.map(e => e.morning.pulse ?? e.morning.pulse_l ?? e.morning.pulse_r);
+    const allSys = [...sysSrc, ...eSys];
+    const allDia = [...diaSrc, ...eDia];
+
+    const minSys = minOf(allSys), minDia = minOf(allDia), minP = minOf(pulse);
+    const maxSys = maxOf(allSys), maxDia = maxOf(allDia), maxP = maxOf(pulse);
+
+    const noData = `<div style="color:var(--muted);font-size:12px;padding:6px 0">Немає даних</div>`;
+
+    document.getElementById('minBpCardBody').innerHTML = (minSys || minDia || minP)
+      ? cardRow('Систолічний', minSys, 'мм') + cardRow('Діастолічний', minDia, 'мм') + cardRow('Пульс', minP, 'уд/хв')
+      : noData;
+
+    document.getElementById('maxBpCardBody').innerHTML = (maxSys || maxDia || maxP)
+      ? cardRow('Систолічний', maxSys, 'мм') + cardRow('Діастолічний', maxDia, 'мм') + cardRow('Пульс', maxP, 'уд/хв')
+      : noData;
   })();
 
   function avgOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.round(a.reduce((s,x)=>s+x,0)/a.length) : null; }
