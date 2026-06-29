@@ -1,9 +1,10 @@
-const CACHE = 'health-v40';
-const API_CACHE = 'health-api-v40';
+const CACHE = 'health-v41';
+const API_CACHE = 'health-api-v41';
 
 const STATIC_SHELL = [
   '/offline.html',
   '/manifest.json',
+  '/datepicker.js',
   '/icons/favicon.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

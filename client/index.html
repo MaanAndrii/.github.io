@@ -17,6 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="/datepicker.js"></script>
   <style>
     :root {
       --bg:             #0f1628;
@@ -1256,15 +1257,7 @@
 
   <!-- ══ HISTORY PAGE ══ -->
   <div class="page" id="page-history">
-    <div style="display:flex;gap:8px;align-items:center;padding:4px 0 8px">
-      <input type="date" id="historyDateFrom" onchange="journalPage=0;renderHistory()"
-        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:6px 10px;font-family:var(--font);outline:none">
-      <span style="font-size:12px;color:var(--muted);flex-shrink:0">—</span>
-      <input type="date" id="historyDateTo" onchange="journalPage=0;renderHistory()"
-        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:6px 10px;font-family:var(--font);outline:none">
-      <button onclick="document.getElementById('historyDateFrom').value='';document.getElementById('historyDateTo').value='';journalPage=0;renderHistory()"
-        style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;padding:6px 10px;cursor:pointer;flex-shrink:0;font-family:var(--font)">✕</button>
-    </div>
+    <div id="journalDatePicker" style="padding:4px 0 8px"></div>
     <div id="historyList"></div>
     <div id="journalPagination" style="display:flex;justify-content:center;align-items:center;gap:8px;padding:12px 0"></div>
   </div>
@@ -1794,7 +1787,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.26';
+const APP_VERSION   = '2.27';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -2020,6 +2013,7 @@ async function initApp() {
 
     await fetchEntries();
     showApp();
+    _initJournalPicker();
     initRollers();
     _updateChipSync();
     flushPendingEntries();
@@ -3208,11 +3202,25 @@ function filterEntries(days) {
   return entries.filter(e => String(e.date).slice(0,10) >= cutStr);
 }
 
+let _journalPicker = null;
+
+function _initJournalPicker() {
+  if (_journalPicker) { _journalPicker.refresh(); return; }
+  _journalPicker = new RangeDatePicker({
+    container: 'journalDatePicker',
+    onChange: () => { journalPage = 0; renderHistory(); },
+    getMarkedDates: () => new Set(entries.map(e => String(e.date).slice(0, 10))),
+    getMinDate: () => entries.length
+      ? String(entries[entries.length - 1].date).slice(0, 10) : null,
+    getMaxDate: () => todayStr(),
+  });
+}
+
 function _journalFiltered() {
-  const from = document.getElementById('historyDateFrom')?.value || '';
-  const to   = document.getElementById('historyDateTo')?.value   || '';
+  const from = _journalPicker ? _journalPicker.getFrom() : null;
+  const to   = _journalPicker ? _journalPicker.getTo()   : null;
   return entries.filter(e => {
-    const d = String(e.date).slice(0,10);
+    const d = String(e.date).slice(0, 10);
     if (from && d < from) return false;
     if (to   && d > to)   return false;
     return true;
