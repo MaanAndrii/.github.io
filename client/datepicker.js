@@ -174,13 +174,13 @@
         this._clear();
       });
 
-      this._root.querySelector('.rdp-prev').addEventListener('click', e => {
+      this._pop.querySelector('.rdp-prev').addEventListener('click', e => {
         e.stopPropagation();
         if (--this._vm < 0) { this._vm = 11; this._vy--; }
         this._renderGrid();
       });
 
-      this._root.querySelector('.rdp-next').addEventListener('click', e => {
+      this._pop.querySelector('.rdp-next').addEventListener('click', e => {
         e.stopPropagation();
         if (++this._vm > 11) { this._vm = 0; this._vy++; }
         this._renderGrid();

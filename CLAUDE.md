@@ -6,7 +6,7 @@
 - `client/index.html` → `const APP_VERSION = 'X.XX'`
 - `client/sw.js` → `const CACHE = 'health-vN'` і `const API_CACHE = 'health-api-vN'` (N — ціле, збільшувати на 1)
 
-Поточна версія: **2.29** (SW: health-v43).
+Поточна версія: **2.30** (SW: health-v44).
 
 ## Stack
 
