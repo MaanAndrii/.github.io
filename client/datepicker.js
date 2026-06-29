@@ -221,11 +221,11 @@
       pop.style.transform = '';
 
       if (vw <= 520) {
-        // Mobile: stretch horizontally, center vertically
-        pop.style.left   = '12px';
-        pop.style.right  = '12px';
-        pop.style.width  = 'auto';
-        pop.style.top    = '50%';
+        // Mobile: explicit pixel width so it always stretches to screen edges
+        pop.style.left      = '12px';
+        pop.style.right     = '';
+        pop.style.width     = (vw - 24) + 'px';
+        pop.style.top       = '50%';
         pop.style.transform = 'translateY(-50%)';
       } else {
         // Desktop: below the bar
