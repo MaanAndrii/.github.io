@@ -91,6 +91,16 @@
   text-align:center;margin-top:10px;padding-top:8px;
   border-top:1px solid var(--border,#2d3748);
 }
+@media(max-width:520px){
+  .rdp-pop{
+    left:12px!important;
+    right:auto!important;
+    width:calc(100vw - 24px)!important;
+    top:50%!important;
+    bottom:auto!important;
+    transform:translateY(-50%)!important;
+  }
+}
 `;
 
   function injectCSS() {
@@ -207,45 +217,29 @@
     // On mobile (<= 520px): full-width centered vertically.
     // On desktop: below the trigger bar, aligned to its left edge.
     _positionPopup() {
+      const pop = this._pop;
+      // Mobile layout handled entirely by CSS @media(max-width:520px)
+      if (window.innerWidth <= 520) {
+        pop.style.cssText = 'display:block';
+        return;
+      }
+      // Desktop: position below (or above) the trigger bar
       const bar  = this._root.querySelector('.rdp-bar');
       const rect = bar.getBoundingClientRect();
       const vw   = window.innerWidth;
       const vh   = window.innerHeight;
-      const pop  = this._pop;
-
-      pop.style.width    = '';
-      pop.style.left     = '';
-      pop.style.right    = '';
-      pop.style.top      = '';
-      pop.style.bottom   = '';
-      pop.style.transform = '';
-
-      if (vw <= 520) {
-        // Mobile: explicit pixel width so it always stretches to screen edges
-        pop.style.left      = '12px';
-        pop.style.right     = '';
-        pop.style.width     = (vw - 24) + 'px';
-        pop.style.top       = '50%';
-        pop.style.transform = 'translateY(-50%)';
-      } else {
-        // Desktop: below the bar
-        const popW = Math.max(rect.width, 280);
-        let left   = rect.left;
-        // Clamp to viewport
-        if (left + popW > vw - 8) left = vw - popW - 8;
-        if (left < 8) left = 8;
-
-        pop.style.width = popW + 'px';
-        pop.style.left  = left + 'px';
-
-        // Show below or above if not enough room below
-        const spaceBelow = vh - rect.bottom - 8;
-        if (spaceBelow >= 320) {
-          pop.style.top = (rect.bottom + 6) + 'px';
-        } else {
-          pop.style.bottom = (vh - rect.top + 6) + 'px';
-        }
-      }
+      const popW = Math.max(rect.width, 280);
+      let left   = rect.left;
+      if (left + popW > vw - 8) left = vw - popW - 8;
+      if (left < 8) left = 8;
+      const spaceBelow = vh - rect.bottom - 8;
+      const topVal = spaceBelow >= 320
+        ? (rect.bottom + 6) + 'px'
+        : '';
+      const bottomVal = spaceBelow < 320
+        ? (vh - rect.top + 6) + 'px'
+        : '';
+      pop.style.cssText = `display:block;width:${popW}px;left:${left}px;top:${topVal};bottom:${bottomVal}`;
     }
 
     _openFor(target) {
@@ -266,7 +260,7 @@
     }
 
     _close() {
-      this._pop.style.display = 'none';
+      this._pop.style.cssText = 'display:none';
       this._open = false;
     }
 

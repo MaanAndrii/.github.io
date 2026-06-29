@@ -1,5 +1,5 @@
-const CACHE = 'health-v44';
-const API_CACHE = 'health-api-v44';
+const CACHE = 'health-v45';
+const API_CACHE = 'health-api-v45';
 
 const STATIC_SHELL = [
   '/offline.html',
