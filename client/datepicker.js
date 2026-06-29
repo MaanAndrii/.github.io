@@ -21,7 +21,7 @@
     return parseInt(d) + ' ' + MONTHS_SHORT[parseInt(m) - 1] + ' ' + y;
   }
 
-  const CSS_VER = '4';
+  const CSS_VER = '5';
   const CSS = `
 .rdp{position:relative;display:inline-flex;align-items:center;gap:6px;width:100%}
 .rdp-bar{
@@ -50,6 +50,11 @@
   padding:16px;box-sizing:border-box;
 }
 .rdp-overlay.rdp-mobile{background:rgba(0,0,0,.55)}
+.rdp-overlay.rdp-mobile .rdp-cell{padding:12px 2px 11px;font-size:16px}
+.rdp-overlay.rdp-mobile .rdp-wdays span{padding:6px 0;font-size:11px}
+.rdp-overlay.rdp-mobile .rdp-mth{font-size:16px}
+.rdp-overlay.rdp-mobile .rdp-nav{font-size:26px;padding:0 12px}
+.rdp-overlay.rdp-mobile .rdp-pop{padding:18px 18px 16px}
 .rdp-overlay.rdp-desktop{background:transparent;padding:0;align-items:flex-start;justify-content:flex-start}
 .rdp-pop{
   background:var(--card,#161f35);
