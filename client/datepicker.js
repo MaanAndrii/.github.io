@@ -21,7 +21,7 @@
     return parseInt(d) + ' ' + MONTHS_SHORT[parseInt(m) - 1] + ' ' + y;
   }
 
-  const CSS_VER = '3'; // bump when CSS changes to force re-injection over stale cached style
+  const CSS_VER = '4';
   const CSS = `
 .rdp{position:relative;display:inline-flex;align-items:center;gap:6px;width:100%}
 .rdp-bar{
@@ -44,13 +44,23 @@
   transition:color .15s,border-color .15s;flex-shrink:0;line-height:1
 }
 .rdp-clear:hover{color:var(--text,#e5e7eb);border-color:var(--text,#e5e7eb)}
+.rdp-overlay{
+  position:fixed;inset:0;z-index:9999;
+  display:none;align-items:center;justify-content:center;
+  padding:16px;box-sizing:border-box;
+}
+.rdp-overlay.rdp-mobile{background:rgba(0,0,0,.55)}
+.rdp-overlay.rdp-desktop{background:transparent;padding:0;align-items:flex-start;justify-content:flex-start}
 .rdp-pop{
-  position:fixed;z-index:9999;
   background:var(--card,#161f35);
   border:1px solid var(--border,#2d3748);
   border-radius:14px;padding:14px 14px 12px;
   box-shadow:0 8px 40px rgba(0,0,0,.65);
   user-select:none;box-sizing:border-box;
+  width:100%;
+}
+.rdp-overlay.rdp-desktop .rdp-pop{
+  position:absolute;width:auto;min-width:280px;
 }
 .rdp-pop-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .rdp-nav{
@@ -92,7 +102,6 @@
 }
 `;
 
-  // Always replace stale CSS from older cached versions
   function injectCSS() {
     const existing = document.getElementById('rdp-css');
     if (existing && existing.dataset.ver === CSS_VER) return;
@@ -141,30 +150,36 @@
             <span class="rdp-val">—</span>
           </div>
         </div>
-        <button class="rdp-clear" title="Скинути фільтр">✕</button>
-        <div class="rdp-pop" style="display:none">
-          <div class="rdp-pop-head">
-            <button class="rdp-nav rdp-prev">‹</button>
-            <span class="rdp-mth"></span>
-            <button class="rdp-nav rdp-next">›</button>
-          </div>
-          <div class="rdp-wdays">${DAYS.map(d => `<span>${d}</span>`).join('')}</div>
-          <div class="rdp-grid"></div>
-          <div class="rdp-hint"></div>
-        </div>`;
+        <button class="rdp-clear" title="Скинути фільтр">✕</button>`;
 
-      this._pop     = this._root.querySelector('.rdp-pop');
-      this._grid    = this._root.querySelector('.rdp-grid');
-      this._mthEl   = this._root.querySelector('.rdp-mth');
-      this._hintEl  = this._root.querySelector('.rdp-hint');
       this._fromVal = this._root.querySelector('.rdp-f-from .rdp-val');
       this._toVal   = this._root.querySelector('.rdp-f-to .rdp-val');
 
-      // Move popup to <body> — escapes overflow:hidden/auto on any ancestor
-      document.body.appendChild(this._pop);
+      // Overlay + popup appended to <body> — escapes all overflow:hidden/auto ancestors
+      this._overlay = document.createElement('div');
+      this._overlay.className = 'rdp-overlay';
+
+      this._pop = document.createElement('div');
+      this._pop.className = 'rdp-pop';
+      this._pop.innerHTML = `
+        <div class="rdp-pop-head">
+          <button class="rdp-nav rdp-prev">‹</button>
+          <span class="rdp-mth"></span>
+          <button class="rdp-nav rdp-next">›</button>
+        </div>
+        <div class="rdp-wdays">${DAYS.map(d => `<span>${d}</span>`).join('')}</div>
+        <div class="rdp-grid"></div>
+        <div class="rdp-hint"></div>`;
+
+      this._overlay.appendChild(this._pop);
+      document.body.appendChild(this._overlay);
+
+      this._grid   = this._pop.querySelector('.rdp-grid');
+      this._mthEl  = this._pop.querySelector('.rdp-mth');
+      this._hintEl = this._pop.querySelector('.rdp-hint');
 
       this._root.querySelector('.rdp-bar').addEventListener('click', e => {
-        const field = e.target.closest('.rdp-field');
+        const field  = e.target.closest('.rdp-field');
         const target = field
           ? (field.classList.contains('rdp-f-from') ? 'from' : 'to')
           : this._sel;
@@ -177,7 +192,6 @@
         this._clear();
       });
 
-      // Use this._pop.querySelector — popup is now in <body>, not in this._root
       this._pop.querySelector('.rdp-prev').addEventListener('click', e => {
         e.stopPropagation();
         if (--this._vm < 0) { this._vm = 11; this._vy--; }
@@ -197,9 +211,13 @@
         this._pick(cell.dataset.d);
       });
 
-      document.addEventListener('click', e => {
-        if (this._open && !this._root.contains(e.target) && !this._pop.contains(e.target))
-          this._close();
+      // Click the overlay backdrop (not the popup) → close
+      this._overlay.addEventListener('click', e => {
+        if (e.target === this._overlay) this._close();
+      });
+
+      document.addEventListener('keydown', e => {
+        if (this._open && e.key === 'Escape') this._close();
       });
 
       window.addEventListener('resize', () => {
@@ -208,43 +226,40 @@
     }
 
     _positionPopup() {
-      const pop = this._pop;
-      const vw  = window.innerWidth;
-      const vh  = window.innerHeight;
+      const vw = window.innerWidth;
 
-      if (vw <= 520) {
-        // Mobile: use setProperty('important') — highest possible priority,
-        // overrides any CSS rule including !important in stylesheets
-        pop.style.setProperty('position',  'fixed',                    'important');
-        pop.style.setProperty('left',      '12px',                     'important');
-        pop.style.setProperty('right',     'auto',                     'important');
-        pop.style.setProperty('width',     (vw - 24) + 'px',           'important');
-        pop.style.setProperty('top',       '50%',                      'important');
-        pop.style.setProperty('bottom',    'auto',                     'important');
-        pop.style.setProperty('transform', 'translateY(-50%)',          'important');
+      if (vw <= 600) {
+        // Mobile: full-screen backdrop, popup fills it via CSS padding + width:100%
+        // Zero JavaScript positioning — CSS handles everything
+        this._overlay.className = 'rdp-overlay rdp-mobile';
+        this._pop.style.cssText = '';  // clear any desktop inline styles
       } else {
+        // Desktop: transparent overlay, popup positioned absolutely
+        // position:absolute inside position:fixed inset:0 → coords = viewport coords
+        this._overlay.className = 'rdp-overlay rdp-desktop';
         const bar  = this._root.querySelector('.rdp-bar');
         const rect = bar.getBoundingClientRect();
+        const vh   = window.innerHeight;
         const popW = Math.max(rect.width, 280);
-        let left   = rect.left;
+
+        let left = rect.left;
         if (left + popW > vw - 8) left = vw - popW - 8;
         if (left < 8) left = 8;
 
-        pop.style.removeProperty('transform');
-        pop.style.setProperty('position', 'fixed');
-        pop.style.setProperty('width',    popW + 'px');
-        pop.style.setProperty('left',     left + 'px');
-        pop.style.setProperty('right',    'auto');
-        pop.style.removeProperty('bottom');
+        this._pop.style.width  = popW + 'px';
+        this._pop.style.left   = left + 'px';
+        this._pop.style.right  = 'auto';
 
-        const spaceBelow = vh - rect.bottom - 8;
-        if (spaceBelow >= 320) {
-          pop.style.setProperty('top',    (rect.bottom + 6) + 'px');
+        if (vh - rect.bottom - 8 >= 300) {
+          this._pop.style.top    = (rect.bottom + 6) + 'px';
+          this._pop.style.bottom = 'auto';
         } else {
-          pop.style.setProperty('bottom', (vh - rect.top + 6) + 'px');
-          pop.style.removeProperty('top');
+          this._pop.style.bottom = (vh - rect.top + 6) + 'px';
+          this._pop.style.top    = 'auto';
         }
       }
+
+      this._overlay.style.display = 'flex';
     }
 
     _openFor(target) {
@@ -259,13 +274,12 @@
         this._vm = parseInt(t.slice(5, 7)) - 1;
       }
       this._renderGrid();
-      this._pop.style.display = 'block'; // make visible BEFORE positioning
       this._open = true;
-      this._positionPopup();             // position AFTER display:block
+      this._positionPopup();
     }
 
     _close() {
-      this._pop.style.display = 'none';
+      this._overlay.style.display = 'none';
       this._open = false;
     }
 
@@ -278,7 +292,7 @@
         this._renderGrid();
       } else {
         if (this._from && d < this._from) {
-          this._to = this._from;
+          this._to   = this._from;
           this._from = d;
         } else {
           this._to = d;
@@ -302,7 +316,7 @@
       this._fromVal.textContent = fmt(this._from);
       this._toVal.textContent   = fmt(this._to);
       this._fromVal.classList.toggle('rdp-filled', !!this._from);
-      this._toVal.classList.toggle('rdp-filled', !!this._to);
+      this._toVal.classList.toggle('rdp-filled',   !!this._to);
     }
 
     _renderGrid() {
@@ -324,30 +338,31 @@
         next.disabled = this._vy > xy || (this._vy === xy && this._vm >= xm);
       } else next.disabled = false;
 
-      const first = new Date(this._vy, this._vm, 1);
-      const last  = new Date(this._vy, this._vm + 1, 0);
-      let offset  = first.getDay() - 1;
+      const first  = new Date(this._vy, this._vm, 1);
+      const last   = new Date(this._vy, this._vm + 1, 0);
+      let   offset = first.getDay() - 1;
       if (offset < 0) offset = 6;
 
       const cells = [];
-      for (let i = 0; i < offset; i++) cells.push('<span class="rdp-cell rdp-empty"></span>');
+      for (let i = 0; i < offset; i++)
+        cells.push('<span class="rdp-cell rdp-empty"></span>');
 
       for (let day = 1; day <= last.getDate(); day++) {
         const ds  = p4(this._vy) + '-' + p2(this._vm + 1) + '-' + p2(day);
         const cls = ['rdp-cell'];
-        if (ds === t)                                              cls.push('rdp-today');
+        if (ds === t)                                                    cls.push('rdp-today');
         if (this._from && this._to && ds > this._from && ds < this._to) cls.push('rdp-range');
-        if (ds === this._from || ds === this._to)                 cls.push('rdp-sel');
+        if (ds === this._from || ds === this._to)                        cls.push('rdp-sel');
 
-        let dot = '';
         const isSel = ds === this._from || ds === this._to;
-        if (ds === t && !isSel)              dot = '<span class="rdp-today-dot"></span>';
-        else if (marked.has(ds) && !isSel)   dot = '<span class="rdp-dot"></span>';
+        let dot = '';
+        if (ds === t && !isSel)            dot = '<span class="rdp-today-dot"></span>';
+        else if (marked.has(ds) && !isSel) dot = '<span class="rdp-dot"></span>';
 
         cells.push(`<span class="${cls.join(' ')}" data-d="${ds}">${day}${dot}</span>`);
       }
 
-      this._grid.innerHTML = cells.join('');
+      this._grid.innerHTML     = cells.join('');
       this._hintEl.textContent = this._sel === 'from'
         ? 'Оберіть початкову дату' : 'Оберіть кінцеву дату';
     }
