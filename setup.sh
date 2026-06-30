@@ -357,8 +357,8 @@ EOF
     if [[ -n "$QUICK_URL" ]]; then
       ok "Quick Tunnel URL: ${QUICK_URL}"
       # Оновити .env з реальним URL
-      sed -i "s|BASE_URL=.*|BASE_URL=${QUICK_URL}|" "$ENV_FILE"
-      sed -i "s|GOOGLE_CALLBACK_URL=.*|GOOGLE_CALLBACK_URL=${QUICK_URL}/api/auth/google/callback|" "$ENV_FILE"
+      sed -i "s|^BASE_URL=.*|BASE_URL=${QUICK_URL}|" "$ENV_FILE"
+      sed -i "s|^GOOGLE_CALLBACK_URL=.*|GOOGLE_CALLBACK_URL=${QUICK_URL}/api/auth/google/callback|" "$ENV_FILE"
       systemctl restart blood
       ok ".env оновлено з реальним URL"
     else
